@@ -1,29 +1,22 @@
-"""Encode features and pick the ones most correlated with the label.
-
-Everything here is fit on the training data only, then applied to the test
-data, so no information from the test set leaks into training.
-"""
+"""Encode features and keep the top-k by |correlation| (fit on train only)."""
 
 import pandas as pd
 from sklearn.preprocessing import OrdinalEncoder
 
-from src.data import CATEGORICAL_COLUMNS, FEATURE_COLUMNS
+from dosdetect.data import CATEGORICAL_COLUMNS, FEATURE_COLUMNS
 
 
 class Preprocessor:
     def __init__(self, n_features=8):
         self.n_features = n_features
         # Categories missing from training become -1 at test time.
-        self.encoder = OrdinalEncoder(
-            handle_unknown="use_encoded_value", unknown_value=-1
-        )
+        self.encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
         self.correlations = None
         self.selected_features = None
 
     def fit(self, df):
         X = self._encode(df, fit=True)
-        # Absolute Pearson correlation of each feature with the label.
-        # Constant columns (e.g. num_outbound_cmds) give NaN, treated as 0.
+        # Constant columns give NaN correlation; treat as 0.
         corr = X.corrwith(df["label"]).abs().fillna(0)
         self.correlations = corr.sort_values(ascending=False)
         self.selected_features = list(self.correlations.index[: self.n_features])

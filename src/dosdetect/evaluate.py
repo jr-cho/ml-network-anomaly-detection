@@ -11,7 +11,7 @@ from sklearn.metrics import (
     recall_score,
 )
 
-# Reported results from the paper (Section IV-A), as fractions.
+# Paper results (Section IV-A).
 PAPER_RESULTS = {
     "knn": {"accuracy": 0.9851, "precision": 0.989, "recall": 0.978},
     "naive_bayes": {"accuracy": 0.9395, "precision": 0.9774, "recall": 0.9554},
@@ -19,12 +19,7 @@ PAPER_RESULTS = {
 
 
 def evaluate(model, X_train, y_train, X_test, y_test, unseen=None):
-    """Train and score one model.
-
-    unseen: optional boolean array over the test rows, True for DoS rows whose
-    attack type never appears in training. If given, recall is also reported
-    separately for seen and unseen attack types.
-    """
+    """Fit, time and score a model; `unseen` mask adds seen/unseen recall."""
     start = time.perf_counter()
     model.fit(X_train, y_train)
     train_time = time.perf_counter() - start
@@ -33,7 +28,6 @@ def evaluate(model, X_train, y_train, X_test, y_test, unseen=None):
     y_pred = model.predict(X_test)
     predict_time = time.perf_counter() - start
 
-    # DoS (label 1) is the positive class.
     result = {
         "accuracy": accuracy_score(y_test, y_pred),
         "precision": precision_score(y_test, y_pred, zero_division=0),
@@ -51,8 +45,7 @@ def evaluate(model, X_train, y_train, X_test, y_test, unseen=None):
         result["recall_seen"] = _recall_on(y_pred, (y_true == 1) & ~unseen)
         result["recall_unseen"] = _recall_on(y_pred, (y_true == 1) & unseen)
 
-    # Random Forest's out-of-bag estimate, computed on training data only.
-    # For a pipeline, look at its last step (the classifier).
+    # OOB score lives on the pipeline's final step.
     final = model[-1] if hasattr(model, "steps") else model
     if hasattr(final, "oob_score_"):
         result["oob_score"] = final.oob_score_
@@ -61,5 +54,5 @@ def evaluate(model, X_train, y_train, X_test, y_test, unseen=None):
 
 
 def _recall_on(y_pred, attack_rows):
-    """Share of the given attack rows predicted as DoS (NaN if there are none)."""
+    """Share of attack rows predicted DoS (NaN if none)."""
     return y_pred[attack_rows].mean() if attack_rows.any() else float("nan")

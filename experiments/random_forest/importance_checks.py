@@ -1,31 +1,16 @@
-"""Robustness checks for the Random Forest feature importance results (step 4).
+"""Robustness checks for feature importance: seeds, metrics, retraining, unseen attacks.
 
-Run after notebooks/rf_feature_importance.py. Checks that the importance
-conclusions in BRAINSTORM.md section 10 are not artefacts of one seed, one
-metric, or one way of measuring importance:
-
-  1. Seed stability: retrain + re-permute with 3 other seeds.
-  2. Metric: permutation importance scored by recall / accuracy / precision.
-  3. Retraining: add or remove features and retrain (official split).
-  4. Unseen attacks: which features drive detection of attack types
-     never seen in training.
-
-Usage (from the repo root, ~4 min):
-    python notebooks/rf_importance_checks.py
+Prints results only (see docs/random_forest_notes.md section 10). ~4 min.
+Run: python experiments/random_forest/importance_checks.py
 """
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))  # so `src` imports work
 
 import pandas as pd
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import f1_score, recall_score
 
-from src.data import TEST_FILE, TRAIN_FILE, load
-from src.models import random_forest
-from src.preprocess import Preprocessor
+from dosdetect.data import TEST_FILE, TRAIN_FILE, load
+from dosdetect.models import random_forest
+from dosdetect.preprocess import Preprocessor
 
 SEED = 42
 
@@ -70,8 +55,10 @@ def main():
     }
     for name, cols in feature_sets.items():
         pred = random_forest(seed=SEED).fit(X_train[cols], y_train).predict(X_test[cols])
-        print(f"  {name:32} F1 {f1_score(y_test, pred):.4f}   "
-              f"recall seen {pred[dos & ~unseen].mean():.4f}   unseen {pred[unseen].mean():.4f}")
+        print(
+            f"  {name:32} F1 {f1_score(y_test, pred):.4f}   "
+            f"recall seen {pred[dos & ~unseen].mean():.4f}   unseen {pred[unseen].mean():.4f}"
+        )
 
     print("\n=== 4. What drives detection of unseen attack types? ===")
     X_u, y_u = X_test[unseen], y_test[unseen]

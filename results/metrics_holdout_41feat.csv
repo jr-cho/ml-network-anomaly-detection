@@ -1,5 +1,0 @@
-model,accuracy,precision,recall,f1,train_time_s,predict_time_s,recall_seen,recall_unseen,oob_score
-knn,0.9996,0.9996,0.9993,0.9995,0.0284,1.3909,0.9993,,
-naive_bayes,0.6578,0.5434,0.9763,0.6982,0.0283,0.0040,0.9763,,
-random_forest,0.9999,0.9999,0.9998,0.9998,3.0467,0.1587,0.9998,,0.9998
-random_forest_tuned,0.9969,0.9928,0.9997,0.9962,3.6780,0.1952,0.9997,,0.9967
