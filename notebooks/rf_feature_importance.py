@@ -10,11 +10,16 @@ importance measures:
 Bars are coloured by whether the paper's correlation filter (top 8 features)
 keeps the feature.
 
+Permutation importance under-rates features that duplicate each other
+(shuffle one and its twin covers for it). So the script also shuffles each
+group of highly correlated features (|r| > 0.9 on training data) together.
+
 Writes:
     results/rf_feature_importance.png
     results/rf_feature_importance.csv   (all 41 features, the table view)
+    results/rf_grouped_importance.csv   (correlated groups shuffled together)
 
-Usage (from the repo root, ~1 min):
+Usage (from the repo root, ~1.5 min):
     python notebooks/rf_feature_importance.py
 """
 import sys
@@ -27,16 +32,19 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from matplotlib.patches import Patch
 from sklearn.inspection import permutation_importance
+from sklearn.metrics import f1_score
 
 from src.data import TEST_FILE, TRAIN_FILE, load
 from src.models import random_forest
 from src.preprocess import Preprocessor
 
 SEED = 42
-TOP_N = 12  # features shown: the union of each measure's top 12
+TOP_N = 12  # features shown: each measure's top 12, plus all of the paper's 8
+GROUP_CORR = 0.9  # features this correlated are shuffled together
 
 # Colours (validated for colour-blind separation and contrast on white).
 KEPT = "#2a78d6"     # in the paper's 8 features
@@ -71,11 +79,47 @@ def compute():
     table["in_paper_top8"] = table.index.isin(paper_8)
     table["rank_mdi"] = table["mdi"].rank(ascending=False).astype(int)
     table["rank_perm"] = table["perm_f1_drop"].rank(ascending=False).astype(int)
-    return table.sort_values("perm_f1_drop", ascending=False)
+
+    groups = correlated_groups(X_train)
+    table["group"] = [next(" + ".join(g) for g in groups if f in g) for f in table.index]
+    grouped = grouped_permutation(model, X_test, y_test, groups, paper_8)
+    return table.sort_values("perm_f1_drop", ascending=False), grouped
+
+
+def correlated_groups(X):
+    """Group features whose absolute correlation (training data) exceeds GROUP_CORR."""
+    corr = X.corr().abs().fillna(0)
+    groups, used = [], set()
+    for f in corr.index:
+        if f not in used:
+            # Start with f itself: a constant column has NaN (-> 0) self-correlation.
+            group = [f] + [c for c in corr.index
+                           if c != f and corr.at[f, c] > GROUP_CORR and c not in used]
+            used.update(group)
+            groups.append(group)
+    return groups
+
+
+def grouped_permutation(model, X_test, y_test, groups, paper_8, n_repeats=10):
+    """F1 drop when every feature in a group is shuffled with the same row order."""
+    rng = np.random.default_rng(SEED)
+    base = f1_score(y_test, model.predict(X_test))
+    rows = []
+    for group in groups:
+        drops = []
+        for _ in range(n_repeats):
+            X_perm = X_test.copy()
+            X_perm[group] = X_test[group].values[rng.permutation(len(X_test))]
+            drops.append(base - f1_score(y_test, model.predict(X_perm)))
+        rows.append({"group": " + ".join(group), "size": len(group),
+                     "f1_drop": np.mean(drops), "f1_drop_std": np.std(drops),
+                     "has_paper_top8": any(f in paper_8 for f in group)})
+    return pd.DataFrame(rows).sort_values("f1_drop", ascending=False)
 
 
 def plot(table, out_path):
-    shown = table[(table["rank_mdi"] <= TOP_N) | (table["rank_perm"] <= TOP_N)]
+    shown = table[(table["rank_mdi"] <= TOP_N) | (table["rank_perm"] <= TOP_N)
+                  | table["in_paper_top8"]]
     shown = shown.sort_values("perm_f1_drop")  # largest at the top of the chart
     colors = [KEPT if kept else DROPPED for kept in shown["in_paper_top8"]]
     y = range(len(shown))
@@ -99,7 +143,10 @@ def plot(table, out_path):
                         ecolor=TEXT_MUTED, elinewidth=0.8, capsize=0)
         ax.set_title(title, loc="left", fontsize=10, fontweight="bold")
         ax.set_xlabel(xlabel)
-        ax.set_xlim(left=0)
+        # Permutation can dip below zero (shuffling helped by chance); keep those visible.
+        low = (shown[col] - (shown[err] if err else 0)).min()
+        ax.set_xlim(left=min(0, low * 1.3))
+        ax.axvline(0, color=TEXT_MUTED, linewidth=0.8)
         ax.grid(axis="x", color=GRID, linewidth=0.8)
         ax.set_axisbelow(True)
         for side in ("top", "right", "left"):
@@ -128,16 +175,19 @@ def plot(table, out_path):
 
 
 def main():
-    table = compute()
+    table, grouped = compute()
     out_dir = ROOT / "results"
     table.to_csv(out_dir / "rf_feature_importance.csv", float_format="%.4f",
                  index_label="feature")
+    grouped.to_csv(out_dir / "rf_grouped_importance.csv", float_format="%.4f", index=False)
     plot(table, out_dir / "rf_feature_importance.png")
 
     cols = ["mdi", "perm_f1_drop", "rank_mdi", "rank_perm", "abs_corr_with_label",
             "unique_values", "in_paper_top8"]
     print(table[cols].head(15).round(4).to_string())
-    print("\nSaved results/rf_feature_importance.png and .csv")
+    print("\nCorrelated groups shuffled together:")
+    print(grouped.head(8).round(4).to_string(index=False))
+    print("\nSaved results/rf_feature_importance.png, .csv and rf_grouped_importance.csv")
 
 
 if __name__ == "__main__":

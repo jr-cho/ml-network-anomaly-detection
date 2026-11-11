@@ -162,8 +162,8 @@ Extra RF-specific outputs:
 1. [x] Add `random_forest()` to `src/models.py` with the §3 defaults; register `"random_forest"` in `MODELS`.
 2. [x] Run all four configs (§6) and save to `results/`.
 3. [x] Add OOB score, and seen/unseen DoS recall breakdown to the evaluation.
-4. [x] Permutation importance + MDI chart: `notebooks/rf_feature_importance.py` → `results/rf_feature_importance.png` (+ `.csv` with all 41 features). Scored by F1 drop on KDDTest+; `src_bytes` is #1 (0.071, over 5× the next feature).
-5. [ ] `RandomizedSearchCV` on KDDTrain+ only; report default vs. tuned.
+4. [x] Permutation importance + MDI chart: `notebooks/rf_feature_importance.py` → `results/rf_feature_importance.png` (+ `rf_feature_importance.csv`, `rf_grouped_importance.csv`). Robustness checks: `notebooks/rf_importance_checks.py`. Findings in §10.
+5. [x] Tuning on KDDTrain+ only, standard CV vs. leave-attack-type-out CV, 5 seeds: `notebooks/rf_tuning.py` → `results/rf_tuning.csv`. Findings in §11.
 6. [ ] Write up: RF vs. KNN/NB/SVM table, importance chart, unseen-attack discussion.
 
 ### Open questions
@@ -222,6 +222,101 @@ Script: `notebooks/rf_logic_test.py` (run `python notebooks/rf_logic_test.py` fr
 2. **RF is the worst model on unseen attacks** (9–15% recall). It fits the training attack types very tightly. NB generalises better here, despite lower overall scores. This makes a strong discussion point.
 3. Tuning is low priority: no gain on 8 features, and unverifiable gains on 41.
 4. New open question: should RF use the paper's 8 features (fair comparison) or 41 (its best case)? Suggest reporting both.
+
+
+---
+
+## 10. Feature importance: verification (run 2026-11-11)
+
+Two passes over the step 4 results, so the report's claims rest on more than one run.
+
+### Pass 1: did the chart hide anything?
+
+| Check | Result |
+|---|---|
+| Chart's "paper's 8" matches `Preprocessor(n_features=8)` | ✅ |
+| All 8 paper features shown | ❌ `dst_host_srv_count` was missing → **fixed** (chart now always shows all 8) |
+| Negative permutation values | ❌ hidden by an axis starting at 0 → **fixed** (`srv_count` −0.0006 now visible; `duration` −0.0020 is outside the shown set) |
+| Hidden features that matter | ✅ none: largest hidden permutation value is 0.0032 |
+| Constant column | `num_outbound_cmds` is always 0; it crashed the new grouping code until fixed |
+
+### Pass 2: do the conclusions hold?
+
+**Seeds.** `src_bytes` is #1 and `flag` #2 under all 4 seeds tried. `src_bytes`'s score ranges 0.057–0.071. Overall rank agreement between seeds is 0.85–0.90 (Spearman), so ranks below #2 shuffle a little. **Report ranks 1–2 with confidence; treat the rest as approximate.**
+
+**Metric.** Recall and accuracy give the same top feature (`src_bytes`). Precision barely changes for any feature (max 0.0014): the model makes few false alarms, and no single feature controls them.
+
+**Correlated features shuffled together** (`results/rf_grouped_importance.csv`, groups with |r| > 0.9):
+
+| Group | F1 drop | Paper's 8? |
+|---|---|---|
+| `src_bytes` | 0.072 | no |
+| 4 × `*rerror_rate` | 0.023 | no |
+| `flag` | 0.013 | yes |
+| `dst_bytes` | 0.010 | no |
+| 4 × `*serror_rate` | 0.009 | yes |
+
+The `*rerror_rate` features look minor one at a time but rank **#2 as a group**, and the paper's filter drops them. The paper's `*serror_rate` group stays minor even shuffled together, so the earlier finding was not a duplicate-feature artefact.
+
+**Retraining with different feature sets** (official split, seed 42):
+
+| Features | F1 | Recall seen | Recall unseen |
+|---|---|---|---|
+| 41 | 0.876 | 0.996 | 0.089 |
+| 41 minus `src_bytes` | 0.864 | 0.994 | 0.008 |
+| 41 minus `src_bytes`, `dst_bytes` | 0.862 | 0.993 | 0.000 |
+| paper 8 | 0.789 | 0.814 | 0.146 |
+| paper 8 + `src_bytes` | 0.881 | 0.965 | 0.223 |
+| **paper 8 + `src_bytes`, `dst_bytes`** | **0.891** | 0.974 | **0.258** |
+
+- With all 41 features, removing `src_bytes` costs little F1 because other features fill in, **but unseen-attack recall collapses to ~0**. The byte counts are what lets the forest catch new attack types at all.
+- **Adding just `src_bytes` to the paper's 8 beats all 41 features** (F1 0.881 vs 0.876). Adding `dst_bytes` as well gives the best F1 so far (0.891) and 3× the unseen recall of 41 features. Fewer, better-chosen features generalise better here.
+- ⚠️ **Leakage caveat:** these sets were tried *after* seeing test-set importance. `src_bytes` and `dst_bytes` are also #2 and #5 by built-in importance, which uses training data only, so a training-only rule could have picked them. Still, present this as exploratory, not as a tuned result.
+
+**Unseen attacks.** Detection of the 4 unseen types relies most on `src_bytes`, `dst_host_same_srv_rate`, `dst_host_diff_srv_rate`, `logged_in` and `dst_host_srv_rerror_rate`. Base recall there is only 0.089, so these are small effects.
+
+### What this means for step 5
+
+Choosing features moved F1 by up to 10 points; the tuning test in §9 moved it by ~2. Step 5 should treat **feature set as a tuning choice** chosen on training data only (e.g. top-k by built-in importance, with k chosen by cross-validation). It should also check across seeds.
+
+
+---
+
+## 11. Tuning results (step 5, run 2026-11-11)
+
+Script: `notebooks/rf_tuning.py` (~5 min). Tuning uses KDDTrain+ only. `RandomizedSearchCV` tries 30 candidates, scored by F1. The search also picks the number of features to keep (top-k by built-in importance, ranked inside each fold so nothing leaks). Each final model is then trained with 5 seeds and scored on KDDTest+.
+
+### Two ways to validate
+
+- **Standard CV** (stratified 3-fold): every attack type appears in both training and validation.
+- **Attack-out CV** (new): each fold hides one group of DoS types from training and validates on it (`neptune` | `smurf` | `back`+`land` | `teardrop`+`pod`), plus 1/4 of normal rows. It imitates KDDTest+'s unseen attacks using training data only.
+
+| | Best CV F1 | Spread across 30 candidates | Picked |
+|---|---|---|---|
+| Standard | 0.9998 | 0.9956–0.9998 | 41 features, `max_features=0.3`, `max_samples=0.8`, entropy, full depth |
+| Attack-out | 0.164 | 0.001–0.164 | **5 features**, `max_depth=10`, `min_samples_leaf=2`, `max_features=0.5`, `balanced_subsample` |
+
+- Standard CV can't separate the candidates (all within 0.004), as §9 predicted.
+- **Attack-out F1 is at most 0.16.** Even inside the training data, a Random Forest trained without one DoS type mostly fails to flag it. This is the same weakness the official test set shows, reproduced without using any test data. It is a strong point for the report.
+
+### Official test set (mean ± std over 5 seeds)
+
+| Config | F1 | Recall seen | Recall unseen |
+|---|---|---|---|
+| Default, paper's 8 | 0.786 ± 0.002 | 0.813 | 0.129 ± 0.012 |
+| Default, 41 | 0.873 ± 0.004 | 0.995 | 0.073 ± 0.026 |
+| Tuned, standard CV | 0.889 ± 0.004 | 0.996 | 0.188 ± 0.029 |
+| Tuned, attack-out CV | 0.889 ± 0.013 | 0.961 | **0.297 ± 0.108** |
+
+- **Tuning helps, and the gain is real:** both tuned models beat default-41 by ~1.6 F1, about 4× the seed-to-seed spread. Standard CV found its setting by luck, though, since its candidates were indistinguishable. Most of its gain likely comes from `max_features=0.3` (12 features per split instead of 6).
+- **Attack-out tuning gives the best unseen-attack recall (0.30, 4× default-41)** and ties on F1, using only 5 features. The trade-off: seen recall drops (0.996 → 0.961) and results vary more by seed (unseen 0.17–0.45).
+- The 5 features it keeps vary by seed. `src_bytes` and `same_srv_rate` are always picked, and `dst_bytes` and `flag` in 4 of 5 runs. The variation explains the higher variance.
+- This matches §10's exploratory "paper 8 + `src_bytes`, `dst_bytes`" result (F1 0.891, unseen 0.258), **but reaches it with training data only**. Use this version in the report, not the §10 one.
+
+### Recommendation
+
+- Report **default (paper 8)**, **default (41)** and **tuned (attack-out CV)** in the Random Forest section. Add the attack-out CV score as evidence of the generalisation gap.
+- Open question: should `src/run.py` gain a `random_forest_tuned` model with the attack-out settings? It needs the feature selection step inside the model, which `run.py` doesn't do today.
 
 ---
 

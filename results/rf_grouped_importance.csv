@@ -1,0 +1,34 @@
+group,size,f1_drop,f1_drop_std,has_paper_top8
+src_bytes,1,0.0716,0.0014,False
+dst_host_rerror_rate + dst_host_srv_rerror_rate + srv_rerror_rate + rerror_rate,4,0.0232,0.0008,False
+flag,1,0.0132,0.0006,True
+dst_bytes,1,0.0103,0.0008,False
+dst_host_srv_serror_rate + dst_host_serror_rate + srv_serror_rate + serror_rate,4,0.0092,0.0005,True
+protocol_type,1,0.0079,0.0006,False
+logged_in,1,0.0070,0.0004,False
+dst_host_same_srv_rate + dst_host_srv_count,2,0.0056,0.0012,True
+dst_host_srv_diff_host_rate,1,0.0054,0.0004,False
+hot,1,0.0046,0.0001,False
+num_root + num_compromised,2,0.0045,0.0001,False
+same_srv_rate,1,0.0037,0.0003,True
+dst_host_diff_srv_rate,1,0.0033,0.0006,False
+dst_host_count,1,0.0028,0.0005,False
+dst_host_same_src_port_rate,1,0.0023,0.0002,False
+count,1,0.0016,0.0004,False
+service,1,0.0016,0.0004,False
+srv_diff_host_rate,1,0.0009,0.0002,False
+diff_srv_rate,1,0.0007,0.0003,False
+urgent,1,0.0000,0.0000,False
+su_attempted,1,0.0000,0.0000,False
+root_shell,1,0.0000,0.0000,False
+num_file_creations,1,0.0000,0.0000,False
+is_guest_login,1,0.0000,0.0000,False
+num_access_files,1,0.0000,0.0000,False
+num_outbound_cmds,1,0.0000,0.0000,False
+is_host_login,1,0.0000,0.0000,False
+num_failed_logins,1,0.0000,0.0000,False
+num_shells,1,0.0000,0.0000,False
+land,1,-0.0001,0.0000,False
+wrong_fragment,1,-0.0005,0.0001,False
+srv_count,1,-0.0007,0.0002,False
+duration,1,-0.0020,0.0001,False
