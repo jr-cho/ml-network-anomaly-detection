@@ -35,6 +35,14 @@ def parse_args():
     return p.parse_args()
 
 
+def build_model(name, args):
+    if name == "knn":
+        return MODELS[name](k=args.k)
+    if name == "random_forest":
+        return MODELS[name](seed=args.seed)
+    return MODELS[name]()
+
+
 def load_split(split, seed):
     if split == "official":
         return load(TRAIN_FILE), load(TEST_FILE)
@@ -59,10 +67,17 @@ def main():
         print(f"  {name:<28} {prep.correlations[name]:.3f}")
     print()
 
+    # DoS rows in the test set whose attack type never appears in training.
+    # Always empty for the holdout split; about 23% of DoS rows for official.
+    unseen = (test_df["label"] == 1) & ~test_df["attack"].isin(train_df["attack"])
+    if unseen.any():
+        names = ", ".join(sorted(test_df.loc[unseen, "attack"].unique()))
+        print(f"Unseen DoS types in test: {names} ({unseen.sum():,} rows)\n")
+
     rows = []
     for name in args.models:
-        model = MODELS[name](k=args.k) if name == "knn" else MODELS[name]()
-        result = evaluate(model, X_train, y_train, X_test, y_test)
+        model = build_model(name, args)
+        result = evaluate(model, X_train, y_train, X_test, y_test, unseen=unseen.values)
         cm = result.pop("confusion_matrix")
         rows.append({"model": name, **result})
 
@@ -75,6 +90,11 @@ def main():
             if paper and metric in paper:
                 line += f"   (paper: {paper[metric]:.4f}, diff: {result[metric] - paper[metric]:+.4f})"
             print(line)
+        if unseen.any():
+            print(f"  recall on seen DoS types   {result['recall_seen']:.4f}")
+            print(f"  recall on unseen DoS types {result['recall_unseen']:.4f}")
+        if "oob_score" in result:
+            print(f"  out-of-bag accuracy        {result['oob_score']:.4f}")
         print(f"  train {result['train_time_s']:.2f}s, predict {result['predict_time_s']:.2f}s\n")
 
     RESULTS_DIR.mkdir(exist_ok=True)
