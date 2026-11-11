@@ -1,2 +1,12 @@
 docs/build/*
 !docs/build/*.pdf
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Dataset files (download with: python -m src.download_data)
+data/*
+!data/.gitkeep
