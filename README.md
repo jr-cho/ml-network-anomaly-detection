@@ -58,6 +58,7 @@ python -m src.run                         # train on KDDTrain+, test on KDDTest+
 python -m src.run --split holdout         # stratified 80/20 split of KDDTrain+
 python -m src.run --models knn --k 3      # one model, custom K
 python -m src.run --n-features 41         # skip feature selection
+python -m src.run --models random_forest random_forest_tuned --n-features 41
 ```
 
 Code overview:
@@ -70,4 +71,4 @@ Code overview:
 
 ## Status
 
-Paper baselines (KNN, Naive Bayes) and Random Forest implemented. Results for all four split/feature setups are in `results/`, including recall on seen vs. unseen DoS types. SVM not started.
+Paper baselines (KNN, Naive Bayes), Random Forest, and a tuned Random Forest (`random_forest_tuned`, see `BRAINSTORM.md` §11) implemented. Results for all four split/feature setups are in `results/`, including recall on seen vs. unseen DoS types. SVM not started.
