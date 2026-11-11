@@ -52,8 +52,10 @@ def evaluate(model, X_train, y_train, X_test, y_test, unseen=None):
         result["recall_unseen"] = _recall_on(y_pred, (y_true == 1) & unseen)
 
     # Random Forest's out-of-bag estimate, computed on training data only.
-    if hasattr(model, "oob_score_"):
-        result["oob_score"] = model.oob_score_
+    # For a pipeline, look at its last step (the classifier).
+    final = model[-1] if hasattr(model, "steps") else model
+    if hasattr(final, "oob_score_"):
+        result["oob_score"] = final.oob_score_
 
     return result
 

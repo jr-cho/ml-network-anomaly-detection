@@ -38,7 +38,7 @@ def parse_args():
 def build_model(name, args):
     if name == "knn":
         return MODELS[name](k=args.k)
-    if name == "random_forest":
+    if name in ("random_forest", "random_forest_tuned"):
         return MODELS[name](seed=args.seed)
     return MODELS[name]()
 

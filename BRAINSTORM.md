@@ -316,7 +316,16 @@ Script: `notebooks/rf_tuning.py` (~5 min). Tuning uses KDDTrain+ only. `Randomiz
 ### Recommendation
 
 - Report **default (paper 8)**, **default (41)** and **tuned (attack-out CV)** in the Random Forest section. Add the attack-out CV score as evidence of the generalisation gap.
-- Open question: should `src/run.py` gain a `random_forest_tuned` model with the attack-out settings? It needs the feature selection step inside the model, which `run.py` doesn't do today.
+- **Done:** `random_forest_tuned` is now in `src/models.py` (top-5 feature selection + tuned forest, as one pipeline). From `python -m src.run` with seed 42, official split:
+
+  | Features in | Model | F1 | Recall seen | Recall unseen |
+  |---|---|---|---|---|
+  | 8 | `random_forest` | 0.789 | 0.814 | 0.146 |
+  | 8 | `random_forest_tuned` (picks 5 of the 8) | 0.815 | 0.818 | 0.274 |
+  | 41 | `random_forest` | 0.876 | 0.996 | 0.089 |
+  | 41 | `random_forest_tuned` | 0.880 | 0.948 | 0.270 |
+
+  Seed 42's F1 (0.880) sits at the low end of the 5-seed range above (0.889 ± 0.013). Quote the 5-seed numbers from `results/rf_tuning.csv` in the report.
 
 ---
 
