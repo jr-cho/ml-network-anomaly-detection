@@ -162,7 +162,7 @@ Extra RF-specific outputs:
 1. [x] Add `random_forest()` to `src/models.py` with the §3 defaults; register `"random_forest"` in `MODELS`.
 2. [x] Run all four configs (§6) and save to `results/`.
 3. [x] Add OOB score, and seen/unseen DoS recall breakdown to the evaluation.
-4. [ ] Permutation importance + MDI chart (notebook in `notebooks/`).
+4. [x] Permutation importance + MDI chart: `notebooks/rf_feature_importance.py` → `results/rf_feature_importance.png` (+ `.csv` with all 41 features). Scored by F1 drop on KDDTest+; `src_bytes` is #1 (0.071, over 5× the next feature).
 5. [ ] `RandomizedSearchCV` on KDDTrain+ only; report default vs. tuned.
 6. [ ] Write up: RF vs. KNN/NB/SVM table, importance chart, unseen-attack discussion.
 
