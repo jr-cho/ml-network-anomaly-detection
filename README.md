@@ -70,4 +70,4 @@ Code overview:
 
 ## Status
 
-Paper baselines (KNN, Naive Bayes) implemented. Random Forest and SVM not started.
+Paper baselines (KNN, Naive Bayes) and Random Forest implemented. Results for all four split/feature setups are in `results/`, including recall on seen vs. unseen DoS types. SVM not started.
