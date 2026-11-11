@@ -1,4 +1,4 @@
-# Random Forest Brainstorm
+# Random Forest Notes
 
 Owner: Joshua. Goal: add a Random Forest (RF) to the KNN / Naive Bayes comparison in a way that is fast, fair, and easy to explain in the report.
 
@@ -162,8 +162,8 @@ Extra RF-specific outputs:
 1. [x] Add `random_forest()` to `src/models.py` with the §3 defaults; register `"random_forest"` in `MODELS`.
 2. [x] Run all four configs (§6) and save to `results/`.
 3. [x] Add OOB score, and seen/unseen DoS recall breakdown to the evaluation.
-4. [x] Permutation importance + MDI chart: `notebooks/rf_feature_importance.py` → `results/rf_feature_importance.png` (+ `rf_feature_importance.csv`, `rf_grouped_importance.csv`). Robustness checks: `notebooks/rf_importance_checks.py`. Findings in §10.
-5. [x] Tuning on KDDTrain+ only, standard CV vs. leave-attack-type-out CV, 5 seeds: `notebooks/rf_tuning.py` → `results/rf_tuning.csv`. Findings in §11.
+4. [x] Permutation importance + MDI chart: `experiments/random_forest/feature_importance.py` → `results/random_forest/feature_importance.png` (+ `feature_importance.csv`, `grouped_importance.csv`). Robustness checks: `experiments/random_forest/importance_checks.py`. Findings in §10.
+5. [x] Tuning on KDDTrain+ only, standard CV vs. leave-attack-type-out CV, 5 seeds: `experiments/random_forest/tuning.py` → `results/random_forest/tuning.csv`. Findings in §11.
 6. [ ] Write up: RF vs. KNN/NB/SVM table, importance chart, unseen-attack discussion.
 
 ### Open questions
@@ -177,7 +177,7 @@ Extra RF-specific outputs:
 
 ## 9. Logic test results (run 2026-11-11)
 
-Script: `notebooks/rf_logic_test.py` (run `python notebooks/rf_logic_test.py` from the repo root) (default RF: 300 trees, `n_jobs=-1`, seed 42; same preprocessing as `src/`).
+Script: `experiments/random_forest/logic_test.py` (run `python experiments/random_forest/logic_test.py` from the repo root) (default RF: 300 trees, `n_jobs=-1`, seed 42; same preprocessing as `src/`).
 
 ### Default RF vs. baselines
 
@@ -246,7 +246,7 @@ Two passes over the step 4 results, so the report's claims rest on more than one
 
 **Metric.** Recall and accuracy give the same top feature (`src_bytes`). Precision barely changes for any feature (max 0.0014): the model makes few false alarms, and no single feature controls them.
 
-**Correlated features shuffled together** (`results/rf_grouped_importance.csv`, groups with |r| > 0.9):
+**Correlated features shuffled together** (`results/random_forest/grouped_importance.csv`, groups with |r| > 0.9):
 
 | Group | F1 drop | Paper's 8? |
 |---|---|---|
@@ -284,7 +284,7 @@ Choosing features moved F1 by up to 10 points; the tuning test in §9 moved it b
 
 ## 11. Tuning results (step 5, run 2026-11-11)
 
-Script: `notebooks/rf_tuning.py` (~5 min). Tuning uses KDDTrain+ only. `RandomizedSearchCV` tries 30 candidates, scored by F1. The search also picks the number of features to keep (top-k by built-in importance, ranked inside each fold so nothing leaks). Each final model is then trained with 5 seeds and scored on KDDTest+.
+Script: `experiments/random_forest/tuning.py` (~5 min). Tuning uses KDDTrain+ only. `RandomizedSearchCV` tries 30 candidates, scored by F1. The search also picks the number of features to keep (top-k by built-in importance, ranked inside each fold so nothing leaks). Each final model is then trained with 5 seeds and scored on KDDTest+.
 
 ### Two ways to validate
 
@@ -316,7 +316,7 @@ Script: `notebooks/rf_tuning.py` (~5 min). Tuning uses KDDTrain+ only. `Randomiz
 ### Recommendation
 
 - Report **default (paper 8)**, **default (41)** and **tuned (attack-out CV)** in the Random Forest section. Add the attack-out CV score as evidence of the generalisation gap.
-- **Done:** `random_forest_tuned` is now in `src/models.py` (top-5 feature selection + tuned forest, as one pipeline). From `python -m src.run` with seed 42, official split:
+- **Done:** `random_forest_tuned` is now in `src/models.py` (top-5 feature selection + tuned forest, as one pipeline). From `python -m dosdetect.run` with seed 42, official split:
 
   | Features in | Model | F1 | Recall seen | Recall unseen |
   |---|---|---|---|---|
@@ -325,7 +325,7 @@ Script: `notebooks/rf_tuning.py` (~5 min). Tuning uses KDDTrain+ only. `Randomiz
   | 41 | `random_forest` | 0.876 | 0.996 | 0.089 |
   | 41 | `random_forest_tuned` | 0.880 | 0.948 | 0.270 |
 
-  Seed 42's F1 (0.880) sits at the low end of the 5-seed range above (0.889 ± 0.013). Quote the 5-seed numbers from `results/rf_tuning.csv` in the report.
+  Seed 42's F1 (0.880) sits at the low end of the 5-seed range above (0.889 ± 0.013). Quote the 5-seed numbers from `results/random_forest/tuning.csv` in the report.
 
 ---
 
