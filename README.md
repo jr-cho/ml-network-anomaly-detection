@@ -5,7 +5,7 @@ Team: Joshua Gottus, Ethan Barron.
 
 We reproduce the DoS detection method in Section IV-A of the reference paper: KNN and Naive Bayes classifying NSL-KDD traffic as normal or DoS, after keeping the 8 features most correlated with the label. We then compare a Decision Tree, a Random Forest, and a Random Forest tuned for DoS attack types not seen in training. An SVM is planned.
 
-**Reference:** Tundis, A., Cauteruccio, F. "On Machine Learning for Digital Forensics Investigation in Network Traffic." *DCOSS-IoT 2025*. Full text: `docs/paper.pdf`.
+**Reference:** Tundis, A., Cauteruccio, F. "On Machine Learning for Digital Forensics Investigation in Network Traffic." *DCOSS-IoT 2025*. Full text: `reference/On_Machine_Learning_for_Digital_Forensics_Investigation_in_Network_Traffic.pdf`.
 
 ## Layout
 
@@ -22,7 +22,8 @@ src/dosdetect/        shared code the notebooks use
   run.py              CLI: every model on every setup -> results/metrics.csv
 results/              metrics.csv (all models), rf_tuning.csv (Random Forest search)
 tests/                unit tests on synthetic data
-docs/                 reference paper, project proposal
+reference/            source paper (PDF)
+docs/                 project proposal
 ```
 
 Every notebook follows the same structure: load the four setups with `prepare_all()`, score the model with `evaluate_all()`, show tables and confusion matrices, then a model-specific section and takeaways.
