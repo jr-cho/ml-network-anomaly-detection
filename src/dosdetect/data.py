@@ -3,6 +3,7 @@
 `prepare(split, n_features)` is the one entry point the notebooks and the CLI use.
 """
 
+import shutil
 import urllib.request
 from pathlib import Path
 
@@ -15,7 +16,7 @@ DATA_DIR = ROOT / "data"
 RESULTS_DIR = ROOT / "results"
 TRAIN_FILE = DATA_DIR / "KDDTrain+.txt"
 TEST_FILE = DATA_DIR / "KDDTest+.txt"
-DOWNLOAD_URL = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/"
+DOWNLOAD_URL = "https://raw.githubusercontent.com/Jehuty4949/NSL_KDD/master/"
 
 SPLITS = ("official", "holdout")
 FEATURE_COUNTS = (8, 41)
@@ -82,13 +83,25 @@ DOS_ATTACKS = {
 }
 
 
-def download():
-    """Fetch KDDTrain+.txt and KDDTest+.txt into data/ if missing."""
+def download(timeout=60):
+    """Fetch KDDTrain+.txt and KDDTest+.txt into data/ if missing.
+
+    Each file is written to a .part file and renamed only once complete, so an
+    interrupted download never leaves a truncated file behind.
+    """
     DATA_DIR.mkdir(exist_ok=True)
     for path in (TRAIN_FILE, TEST_FILE):
-        if not path.exists():
-            print(f"Downloading {path.name}...")
-            urllib.request.urlretrieve(DOWNLOAD_URL + path.name, path)
+        if path.exists():
+            continue
+        print(f"Downloading {path.name}...")
+        part = path.with_name(path.name + ".part")
+        try:
+            with urllib.request.urlopen(DOWNLOAD_URL + path.name, timeout=timeout) as r:
+                with open(part, "wb") as f:
+                    shutil.copyfileobj(r, f)
+            part.replace(path)
+        finally:
+            part.unlink(missing_ok=True)
 
 
 def load(path):
@@ -101,6 +114,8 @@ def load(path):
 
 def load_split(split="official", seed=42):
     """official: KDDTrain+ vs KDDTest+. holdout: stratified 80/20 of KDDTrain+."""
+    if split not in SPLITS:
+        raise ValueError(f"split must be one of {SPLITS}, got {split!r}")
     download()
     if split == "official":
         return load(TRAIN_FILE), load(TEST_FILE)
@@ -112,6 +127,8 @@ class Preprocessor:
     """Ordinal-encode text columns, keep the top-N features by |correlation| (fit on train)."""
 
     def __init__(self, n_features=8):
+        if not 1 <= n_features <= len(FEATURE_COLUMNS):
+            raise ValueError(f"n_features must be 1-{len(FEATURE_COLUMNS)}, got {n_features}")
         self.n_features = n_features
         # Categories missing from training become -1 at test time.
         self.encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)

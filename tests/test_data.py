@@ -1,3 +1,7 @@
+import io
+
+import pytest
+
 from dosdetect import data
 from dosdetect.data import DOS_ATTACKS, FEATURE_COLUMNS, Preprocessor, load
 
@@ -57,3 +61,48 @@ def test_prepare_marks_only_test_only_dos_types_as_unseen(monkeypatch, train_df,
 def test_prepare_has_no_unseen_rows_when_test_types_match(monkeypatch, train_df):
     monkeypatch.setattr(data, "load_split", lambda split, seed: (train_df, train_df))
     assert not data.prepare("holdout")["unseen"].any()
+
+
+def test_unknown_split_is_rejected():
+    with pytest.raises(ValueError, match="split"):
+        data.load_split("Official")
+
+
+@pytest.mark.parametrize("n", [0, 42])
+def test_n_features_out_of_range_is_rejected(n):
+    with pytest.raises(ValueError, match="n_features"):
+        Preprocessor(n_features=n)
+
+
+@pytest.fixture
+def data_dir(monkeypatch, tmp_path):
+    monkeypatch.setattr(data, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(data, "TRAIN_FILE", tmp_path / "KDDTrain+.txt")
+    monkeypatch.setattr(data, "TEST_FILE", tmp_path / "KDDTest+.txt")
+    return tmp_path
+
+
+def test_download_fetches_missing_files_and_skips_existing(monkeypatch, data_dir):
+    (data_dir / "KDDTrain+.txt").write_text("already here")
+    fetched = []
+
+    def urlopen(url, timeout):
+        fetched.append(url)
+        return io.BytesIO(b"downloaded")
+
+    monkeypatch.setattr(data.urllib.request, "urlopen", urlopen)
+    data.download()
+    assert fetched == [data.DOWNLOAD_URL + "KDDTest+.txt"]
+    assert (data_dir / "KDDTest+.txt").read_bytes() == b"downloaded"
+    assert (data_dir / "KDDTrain+.txt").read_text() == "already here"
+
+
+def test_interrupted_download_leaves_no_file(monkeypatch, data_dir):
+    class Broken(io.BytesIO):
+        def read(self, *args):
+            raise ConnectionResetError("dropped")
+
+    monkeypatch.setattr(data.urllib.request, "urlopen", lambda url, timeout: Broken())
+    with pytest.raises(ConnectionResetError):
+        data.download()
+    assert list(data_dir.iterdir()) == []

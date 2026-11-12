@@ -39,8 +39,8 @@ def random_forest_tuned(seed=42, n_keep=5):
     """RF tuned for unseen attacks; best with all 41 features (notebook 04)."""
     selector = SelectFromModel(
         RandomForestClassifier(n_estimators=50, n_jobs=-1, random_state=seed),
-        threshold=-float("inf"),  # rank only; keep exactly the top n_keep
-        max_features=lambda X: min(n_keep, X.shape[1]),
+        threshold=-float("inf"),  # rank only; keep the top n_keep (all if fewer)
+        max_features=n_keep,
     )
     forest = RandomForestClassifier(
         n_estimators=300,

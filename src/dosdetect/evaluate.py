@@ -55,7 +55,8 @@ def evaluate(model, data):
     # Recall on DoS types seen vs never seen in training (official split only).
     unseen = np.asarray(data["unseen"], dtype=bool)
     if unseen.any():
-        result["recall_seen"] = y_pred[(y_true == 1) & ~unseen].mean()
+        seen = (y_true == 1) & ~unseen
+        result["recall_seen"] = y_pred[seen].mean() if seen.any() else float("nan")
         result["recall_unseen"] = y_pred[unseen].mean()
 
     final = model[-1] if hasattr(model, "steps") else model  # OOB lives on the last step
@@ -77,7 +78,8 @@ def metrics_table(results):
         }
         for k, r in results.items()
     }
-    return pd.DataFrame(rows).T.round(4)
+    table = pd.DataFrame(rows).T
+    return table[[c for c in TABLE_COLUMNS if c in table]].round(4)
 
 
 def paper_table(name, results):

@@ -1,9 +1,12 @@
+import pickle
+import warnings
+
 import numpy as np
 import pytest
 from sklearn.base import clone, is_classifier
 
 from dosdetect.data import Preprocessor
-from dosdetect.evaluate import evaluate
+from dosdetect.evaluate import TABLE_COLUMNS, evaluate, metrics_table
 from dosdetect.models import MODELS, knn, random_forest, random_forest_tuned
 
 
@@ -80,3 +83,23 @@ def test_random_forest_reports_oob_score():
     y = (X[:, 0] > 0.5).astype(int)
     d = {"X_train": X, "y_train": y, "X_test": X, "y_test": y, "unseen": np.zeros(200, bool)}
     assert 0.8 < evaluate(random_forest(n_estimators=30), d)["oob_score"] <= 1.0
+
+
+def test_tuned_forest_can_be_pickled_and_handles_few_features(split):
+    model = random_forest_tuned().fit(split["X_train"].iloc[:, :3], split["y_train"])
+    assert model["select"].get_support().sum() == 3
+    pickle.loads(pickle.dumps(model))
+
+
+def test_recall_seen_is_nan_without_warning_when_every_attack_is_unseen():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        r = evaluate(FixedPredictions(Y_PRED), fixed_data([0, 0, 0, 0, 1, 1, 1, 1]))
+    assert np.isnan(r["recall_seen"])
+
+
+def test_metrics_table_keeps_column_order_when_first_result_lacks_unseen():
+    holdout = evaluate(FixedPredictions(Y_PRED), fixed_data([0] * 8))
+    official = evaluate(FixedPredictions(Y_PRED), fixed_data([0, 0, 0, 0, 0, 0, 1, 1]))
+    columns = list(metrics_table({"holdout": holdout, "official": official}).columns)
+    assert columns == TABLE_COLUMNS
