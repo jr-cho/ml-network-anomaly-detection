@@ -1,4 +1,6 @@
-"""Model factories; distance-based models need StandardScaler."""
+"""Model factories, one per model; MODELS maps names to them."""
+
+from functools import partial
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel
@@ -10,8 +12,14 @@ from sklearn.tree import DecisionTreeClassifier
 
 
 def knn(k=5, metric="euclidean"):
-    """KNN as in the paper (scaled, Euclidean)."""
-    return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=k, metric=metric))
+    """KNN as in the paper: Euclidean distance to every training row (brute force).
+
+    The paper does not give K, so we use scikit-learn's default of 5. Scaling is our
+    addition; without it the byte counts would dominate the distance.
+    """
+    return make_pipeline(
+        StandardScaler(), KNeighborsClassifier(n_neighbors=k, metric=metric, algorithm="brute")
+    )
 
 
 def naive_bayes():
@@ -35,12 +43,17 @@ def random_forest(n_estimators=300, seed=42):
     )
 
 
+def at_most(X, n):
+    """Keep at most n features; older scikit-learn rejects max_features > n_features."""
+    return min(n, X.shape[1])
+
+
 def random_forest_tuned(seed=42, n_keep=5):
     """RF tuned for unseen attacks; best with all 41 features (notebook 04)."""
     selector = SelectFromModel(
         RandomForestClassifier(n_estimators=50, n_jobs=-1, random_state=seed),
-        threshold=-float("inf"),  # rank only; keep exactly the top n_keep
-        max_features=lambda X: min(n_keep, X.shape[1]),
+        threshold=-float("inf"),  # rank only; keep the top n_keep (all if fewer)
+        max_features=partial(at_most, n=n_keep),
     )
     forest = RandomForestClassifier(
         n_estimators=300,

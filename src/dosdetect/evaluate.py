@@ -14,11 +14,14 @@ from sklearn.metrics import (
     recall_score,
 )
 
-# Paper results (Section IV-A).
+# Results the paper reports in Section IV-A. They come from its source study [4] and are
+# given "across the two datasets" (KDDCup and NSL-KDD), so we compare them with the mean
+# of our NSL-KDD and KDDCup results (PAPER_SETUPS).
 PAPER_RESULTS = {
     "knn": {"accuracy": 0.9851, "precision": 0.989, "recall": 0.978},
     "naive_bayes": {"accuracy": 0.9395, "precision": 0.9774, "recall": 0.9554},
 }
+PAPER_SETUPS = {"NSL-KDD": ("official", 8), "KDDCup": ("kddcup", 8)}
 TABLE_COLUMNS = [
     "accuracy",
     "precision",
@@ -26,8 +29,6 @@ TABLE_COLUMNS = [
     "f1",
     "recall_seen",
     "recall_unseen",
-    "train_time_s",
-    "predict_time_s",
 ]
 
 
@@ -55,13 +56,33 @@ def evaluate(model, data):
     # Recall on DoS types seen vs never seen in training (official split only).
     unseen = np.asarray(data["unseen"], dtype=bool)
     if unseen.any():
-        result["recall_seen"] = y_pred[(y_true == 1) & ~unseen].mean()
+        seen = (y_true == 1) & ~unseen
+        result["recall_seen"] = y_pred[seen].mean() if seen.any() else float("nan")
         result["recall_unseen"] = y_pred[unseen].mean()
 
     final = model[-1] if hasattr(model, "steps") else model  # OOB lives on the last step
     if hasattr(final, "oob_score_"):
         result["oob_score"] = final.oob_score_
     return result
+
+
+def benchmark(make_model, data, repeats=5):
+    """Fit and predict a fresh `make_model()` `repeats` times; median, min and max seconds."""
+    train, predict = [], []
+    for _ in range(repeats):
+        model = make_model()
+        start = time.perf_counter()
+        model.fit(data["X_train"], data["y_train"])
+        train.append(time.perf_counter() - start)
+        start = time.perf_counter()
+        model.predict(data["X_test"])
+        predict.append(time.perf_counter() - start)
+    result = {}
+    for name, times in (("train_s", train), ("predict_s", predict)):
+        result[f"{name}_median"] = float(np.median(times))
+        result[f"{name}_min"] = min(times)
+        result[f"{name}_max"] = max(times)
+    return {**result, "repeats": repeats}
 
 
 def evaluate_all(make_model, data):
@@ -77,25 +98,24 @@ def metrics_table(results):
         }
         for k, r in results.items()
     }
-    return pd.DataFrame(rows).T.round(4)
+    table = pd.DataFrame(rows).T
+    return table[[c for c in TABLE_COLUMNS if c in table]].round(4)
 
 
 def paper_table(name, results):
-    """Our 8-feature metrics on both splits vs the paper's (KNN, Naive Bayes)."""
+    """Our 8-feature metrics on each dataset and their mean vs the paper's (KNN, Naive Bayes).
+
+    The paper reports one number per metric "across the two datasets", so `difference`
+    is our two-dataset mean minus the paper's value.
+    """
     paper = PAPER_RESULTS[name]
-    return pd.concat(
-        {
-            f"{split}, 8 features": pd.DataFrame(
-                {
-                    "ours": {m: results[(split, 8)][m] for m in paper},
-                    "paper": paper,
-                    "difference": {m: results[(split, 8)][m] - paper[m] for m in paper},
-                }
-            )
-            for split in ("official", "holdout")
-        },
-        axis=1,
-    ).round(4)
+    table = pd.DataFrame(
+        {label: {m: results[key][m] for m in paper} for label, key in PAPER_SETUPS.items()}
+    )
+    table["mean"] = table[list(PAPER_SETUPS)].mean(axis=1)
+    table["paper [4]"] = pd.Series(paper)
+    table["difference"] = table["mean"] - table["paper [4]"]
+    return table.round(4)
 
 
 def plot_confusions(results):

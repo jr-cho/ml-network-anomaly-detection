@@ -1,9 +1,23 @@
+import pickle
+import warnings
+
+import matplotlib
 import numpy as np
 import pytest
 from sklearn.base import clone, is_classifier
 
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+
 from dosdetect.data import Preprocessor
-from dosdetect.evaluate import evaluate
+from dosdetect.evaluate import (
+    TABLE_COLUMNS,
+    benchmark,
+    evaluate,
+    metrics_table,
+    paper_table,
+    plot_confusions,
+)
 from dosdetect.models import MODELS, knn, random_forest, random_forest_tuned
 
 
@@ -28,6 +42,26 @@ def test_model_learns_separable_data(name, split):
     assert is_classifier(model)
     clone(model)  # raises if the estimator breaks scikit-learn's conventions
     assert evaluate(model, split)["accuracy"] > 0.9
+
+
+def test_evaluate_still_returns_times_but_tables_omit_them():
+    r = evaluate(FixedPredictions(Y_PRED), fixed_data([0] * 8))
+    assert r["train_time_s"] >= 0 and r["predict_time_s"] >= 0
+    assert not [c for c in TABLE_COLUMNS if c.endswith("_time_s")]
+
+
+def test_benchmark_times_a_fresh_model_each_repeat(split):
+    made = []
+
+    def make():
+        made.append(knn())
+        return made[-1]
+
+    r = benchmark(make, split, repeats=3)
+    assert len(made) == 3 and len({id(m) for m in made}) == 3
+    assert r["repeats"] == 3
+    for name in ("train_s", "predict_s"):
+        assert 0 <= r[f"{name}_min"] <= r[f"{name}_median"] <= r[f"{name}_max"]
 
 
 def test_knn_scales_features():
@@ -80,3 +114,56 @@ def test_random_forest_reports_oob_score():
     y = (X[:, 0] > 0.5).astype(int)
     d = {"X_train": X, "y_train": y, "X_test": X, "y_test": y, "unseen": np.zeros(200, bool)}
     assert 0.8 < evaluate(random_forest(n_estimators=30), d)["oob_score"] <= 1.0
+
+
+def test_tuned_forest_can_be_pickled_and_handles_few_features(split):
+    model = random_forest_tuned().fit(split["X_train"].iloc[:, :3], split["y_train"])
+    assert model["select"].get_support().sum() == 3
+    pickle.loads(pickle.dumps(model))
+
+
+def test_recall_seen_is_nan_without_warning_when_every_attack_is_unseen():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        r = evaluate(FixedPredictions(Y_PRED), fixed_data([0, 0, 0, 0, 1, 1, 1, 1]))
+    assert np.isnan(r["recall_seen"])
+
+
+def test_metrics_table_keeps_column_order_when_first_result_lacks_unseen():
+    holdout = evaluate(FixedPredictions(Y_PRED), fixed_data([0] * 8))
+    official = evaluate(FixedPredictions(Y_PRED), fixed_data([0, 0, 0, 0, 0, 0, 1, 1]))
+    columns = list(metrics_table({"holdout": holdout, "official": official}).columns)
+    assert columns == TABLE_COLUMNS
+
+
+def fixed_results():
+    official = evaluate(FixedPredictions(Y_PRED), fixed_data([0, 0, 0, 0, 0, 0, 1, 1]))
+    perfect = fixed_data([0] * 8)["y_test"]
+    kddcup = evaluate(FixedPredictions(perfect), fixed_data([0] * 8))
+    return {("official", 8): official, ("kddcup", 8): kddcup}
+
+
+def test_paper_table_compares_two_dataset_mean_to_paper():
+    table = paper_table("knn", fixed_results())
+    assert list(table.columns) == ["NSL-KDD", "KDDCup", "mean", "paper [4]", "difference"]
+    assert list(table.index) == ["accuracy", "precision", "recall"]
+    assert table.loc["accuracy", "NSL-KDD"] == pytest.approx(6 / 8)
+    assert table.loc["accuracy", "KDDCup"] == 1
+    assert table.loc["accuracy", "mean"] == pytest.approx(7 / 8)
+    assert np.allclose(table["difference"], table["mean"] - table["paper [4]"], atol=1e-4)
+
+
+def test_paper_table_rejects_model_not_in_paper():
+    with pytest.raises(KeyError):
+        paper_table("random_forest", fixed_results())
+
+
+@pytest.mark.parametrize("n", [1, 2])
+def test_plot_confusions_one_axis_per_result(n):
+    results = dict(list(fixed_results().items())[:n])
+    fig = plot_confusions(results)
+    try:
+        titles = [ax.get_title() for ax in fig.axes]
+        assert titles == ["official, 8 features", "kddcup, 8 features"][:n]
+    finally:
+        plt.close(fig)
