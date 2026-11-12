@@ -147,6 +147,41 @@ def load_split(split="official", seed=42):
     return train_test_split(df, test_size=0.2, stratify=df["label"], random_state=seed)
 
 
+# Held-out attack groups for leave-one-attack-out (also used by notebook 04's attack-out CV).
+ATTACK_GROUPS = [["neptune"], ["smurf"], ["back", "land"], ["teardrop", "pod"]]
+DATASETS = ("nsl-kdd", "kddcup")
+
+
+def load_dataset(name):
+    """A whole dataset: "nsl-kdd" (KDDTrain+ only) or "kddcup" (the 10% file)."""
+    if name not in DATASETS:
+        raise ValueError(f"dataset must be one of {DATASETS}, got {name!r}")
+    if name == "kddcup":
+        return load_kddcup()
+    download()
+    return load(TRAIN_FILE)
+
+
+def attack_out_splits(df, seed=42, cap=20_000):
+    """Yield (group_name, train_df, test_df, heldout_mask) for leave-one-attack-out.
+
+    Rows outside the group are split 80/20, stratified by attack. Train is the 80%.
+    Test is the 20% plus every held-out row (at most `cap`, sampled). `heldout_mask`
+    marks the held-out rows of `test_df`.
+    """
+    for group in ATTACK_GROUPS:
+        in_group = df["attack"].isin(group)
+        train, seen_test = train_test_split(
+            df[~in_group], test_size=0.2, stratify=df.loc[~in_group, "attack"], random_state=seed
+        )
+        heldout = df[in_group]
+        if len(heldout) > cap:
+            heldout = heldout.sample(n=cap, random_state=seed)
+        test = pd.concat([seen_test, heldout])
+        mask = np.r_[np.zeros(len(seen_test), bool), np.ones(len(heldout), bool)]
+        yield "+".join(group), train, test, mask
+
+
 class Preprocessor:
     """Ordinal-encode text columns, keep the top-N features by |Spearman correlation|.
 
