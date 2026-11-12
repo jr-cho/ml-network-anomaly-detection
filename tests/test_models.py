@@ -1,12 +1,16 @@
 import pickle
 import warnings
 
+import matplotlib
 import numpy as np
 import pytest
 from sklearn.base import clone, is_classifier
 
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+
 from dosdetect.data import Preprocessor
-from dosdetect.evaluate import TABLE_COLUMNS, evaluate, metrics_table
+from dosdetect.evaluate import TABLE_COLUMNS, evaluate, metrics_table, paper_table, plot_confusions
 from dosdetect.models import MODELS, knn, random_forest, random_forest_tuned
 
 
@@ -103,3 +107,36 @@ def test_metrics_table_keeps_column_order_when_first_result_lacks_unseen():
     official = evaluate(FixedPredictions(Y_PRED), fixed_data([0, 0, 0, 0, 0, 0, 1, 1]))
     columns = list(metrics_table({"holdout": holdout, "official": official}).columns)
     assert columns == TABLE_COLUMNS
+
+
+def fixed_results():
+    official = evaluate(FixedPredictions(Y_PRED), fixed_data([0, 0, 0, 0, 0, 0, 1, 1]))
+    holdout = evaluate(FixedPredictions(Y_PRED), fixed_data([0] * 8))
+    return {("official", 8): official, ("holdout", 8): holdout}
+
+
+def test_paper_table_compares_both_splits_to_paper():
+    table = paper_table("knn", fixed_results())
+    assert set(table.columns.get_level_values(0)) == {"official, 8 features", "holdout, 8 features"}
+    assert set(table.columns.get_level_values(1)) == {"ours", "paper [4]", "difference"}
+    assert list(table.index) == ["accuracy", "precision", "recall"]
+    for split in ("official, 8 features", "holdout, 8 features"):
+        t = table[split]
+        assert t["ours"]["accuracy"] == pytest.approx(6 / 8)
+        assert np.allclose(t["difference"], t["ours"] - t["paper [4]"], atol=1e-4)
+
+
+def test_paper_table_rejects_model_not_in_paper():
+    with pytest.raises(KeyError):
+        paper_table("random_forest", fixed_results())
+
+
+@pytest.mark.parametrize("n", [1, 2])
+def test_plot_confusions_one_axis_per_result(n):
+    results = dict(list(fixed_results().items())[:n])
+    fig = plot_confusions(results)
+    try:
+        titles = [ax.get_title() for ax in fig.axes]
+        assert titles == ["official, 8 features", "holdout, 8 features"][:n]
+    finally:
+        plt.close(fig)
