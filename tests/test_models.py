@@ -111,19 +111,19 @@ def test_metrics_table_keeps_column_order_when_first_result_lacks_unseen():
 
 def fixed_results():
     official = evaluate(FixedPredictions(Y_PRED), fixed_data([0, 0, 0, 0, 0, 0, 1, 1]))
-    holdout = evaluate(FixedPredictions(Y_PRED), fixed_data([0] * 8))
-    return {("official", 8): official, ("holdout", 8): holdout}
+    perfect = fixed_data([0] * 8)["y_test"]
+    kddcup = evaluate(FixedPredictions(perfect), fixed_data([0] * 8))
+    return {("official", 8): official, ("kddcup", 8): kddcup}
 
 
-def test_paper_table_compares_both_splits_to_paper():
+def test_paper_table_compares_two_dataset_mean_to_paper():
     table = paper_table("knn", fixed_results())
-    assert set(table.columns.get_level_values(0)) == {"official, 8 features", "holdout, 8 features"}
-    assert set(table.columns.get_level_values(1)) == {"ours", "paper [4]", "difference"}
+    assert list(table.columns) == ["NSL-KDD", "KDDCup", "mean", "paper [4]", "difference"]
     assert list(table.index) == ["accuracy", "precision", "recall"]
-    for split in ("official, 8 features", "holdout, 8 features"):
-        t = table[split]
-        assert t["ours"]["accuracy"] == pytest.approx(6 / 8)
-        assert np.allclose(t["difference"], t["ours"] - t["paper [4]"], atol=1e-4)
+    assert table.loc["accuracy", "NSL-KDD"] == pytest.approx(6 / 8)
+    assert table.loc["accuracy", "KDDCup"] == 1
+    assert table.loc["accuracy", "mean"] == pytest.approx(7 / 8)
+    assert np.allclose(table["difference"], table["mean"] - table["paper [4]"], atol=1e-4)
 
 
 def test_paper_table_rejects_model_not_in_paper():
@@ -137,6 +137,6 @@ def test_plot_confusions_one_axis_per_result(n):
     fig = plot_confusions(results)
     try:
         titles = [ax.get_title() for ax in fig.axes]
-        assert titles == ["official, 8 features", "holdout, 8 features"][:n]
+        assert titles == ["official, 8 features", "kddcup, 8 features"][:n]
     finally:
         plt.close(fig)

@@ -1,8 +1,14 @@
 """Train and score every model on every setup; write results/metrics.csv.
 
-python -m dosdetect.run                              # all models, all setups -> results/metrics.csv
+python -m dosdetect.run                              # everything -> results/metrics.csv
 python -m dosdetect.run --models knn naive_bayes     # a subset: printed only
 python -m dosdetect.run --split official --n-features 8 --out my_run.csv
+
+Splits: official (NSL-KDD KDDTrain+ vs KDDTest+), holdout (stratified 80/20 of KDDTrain+),
+kddcup (stratified 80/20 of the KDDCup'99 10% file).
+
+A run that includes official and kddcup at 8 features also prints the KNN and Naive
+Bayes comparison with the paper's two-dataset numbers.
 
 Only a full run (all models, splits and feature counts) writes results/metrics.csv,
 so a partial run never overwrites the committed results. Use --out to save one.
@@ -14,7 +20,7 @@ from pathlib import Path
 import pandas as pd
 
 from dosdetect.data import FEATURE_COLUMNS, FEATURE_COUNTS, RESULTS_DIR, SPLITS, prepare
-from dosdetect.evaluate import PAPER_RESULTS, evaluate
+from dosdetect.evaluate import PAPER_SETUPS, evaluate, paper_table
 from dosdetect.models import MODELS
 
 FULL_RUN = (list(MODELS), list(SPLITS), list(FEATURE_COUNTS))
@@ -60,14 +66,20 @@ def main(argv=None):
                 rows.append({"split": split, "n_features": n, "model": name, **r})
 
     df = pd.DataFrame(rows)
-    paper = pd.DataFrame(PAPER_RESULTS).T.add_suffix(" (paper [4])")
     cols = ["split", "n_features", "model", "accuracy", "precision", "recall", "f1"]
     cols += [c for c in ("recall_unseen",) if c in df]
     print(df[cols].to_string(index=False, float_format="%.4f"))
-    print(
-        "\nReported by the paper (Section IV-A, from [4], KDDCup + NSL-KDD):\n"
-        + paper.to_string(float_format="%.4f")
-    )
+
+    ran = set(zip(df["split"], df["n_features"], strict=True))
+    if all(setup in ran for setup in PAPER_SETUPS.values()):
+        for name in ("knn", "naive_bayes"):
+            if name not in args.models:
+                continue
+            by_setup = {
+                (r.split, r.n_features): r._asdict() for r in df[df.model == name].itertuples()
+            }
+            print(f"\n{name}: NSL-KDD + KDDCup vs paper [4] (Section IV-A)")
+            print(paper_table(name, by_setup).to_string(float_format="%.4f"))
 
     out = args.out
     chosen = (args.models, args.split, args.n_features)

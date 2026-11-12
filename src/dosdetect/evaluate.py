@@ -15,11 +15,13 @@ from sklearn.metrics import (
 )
 
 # Results the paper reports in Section IV-A. They come from its source study [4] and are
-# given "across the two datasets" (KDDCup and NSL-KDD), so they are not NSL-KDD-only.
+# given "across the two datasets" (KDDCup and NSL-KDD), so we compare them with the mean
+# of our NSL-KDD and KDDCup results (PAPER_SETUPS).
 PAPER_RESULTS = {
     "knn": {"accuracy": 0.9851, "precision": 0.989, "recall": 0.978},
     "naive_bayes": {"accuracy": 0.9395, "precision": 0.9774, "recall": 0.9554},
 }
+PAPER_SETUPS = {"NSL-KDD": ("official", 8), "KDDCup": ("kddcup", 8)}
 TABLE_COLUMNS = [
     "accuracy",
     "precision",
@@ -84,21 +86,19 @@ def metrics_table(results):
 
 
 def paper_table(name, results):
-    """Our 8-feature metrics on both splits vs the paper's reported ones (KNN, Naive Bayes)."""
+    """Our 8-feature metrics on each dataset and their mean vs the paper's (KNN, Naive Bayes).
+
+    The paper reports one number per metric "across the two datasets", so `difference`
+    is our two-dataset mean minus the paper's value.
+    """
     paper = PAPER_RESULTS[name]
-    return pd.concat(
-        {
-            f"{split}, 8 features": pd.DataFrame(
-                {
-                    "ours": {m: results[(split, 8)][m] for m in paper},
-                    "paper [4]": paper,
-                    "difference": {m: results[(split, 8)][m] - paper[m] for m in paper},
-                }
-            )
-            for split in ("official", "holdout")
-        },
-        axis=1,
-    ).round(4)
+    table = pd.DataFrame(
+        {label: {m: results[key][m] for m in paper} for label, key in PAPER_SETUPS.items()}
+    )
+    table["mean"] = table[list(PAPER_SETUPS)].mean(axis=1)
+    table["paper [4]"] = pd.Series(paper)
+    table["difference"] = table["mean"] - table["paper [4]"]
+    return table.round(4)
 
 
 def plot_confusions(results):

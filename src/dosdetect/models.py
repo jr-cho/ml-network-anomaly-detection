@@ -12,8 +12,14 @@ from sklearn.tree import DecisionTreeClassifier
 
 
 def knn(k=5, metric="euclidean"):
-    """KNN with Euclidean distance as in the paper; scaling is our addition."""
-    return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=k, metric=metric))
+    """KNN as in the paper: Euclidean distance to every training row (brute force).
+
+    The paper does not give K, so we use scikit-learn's default of 5. Scaling is our
+    addition; without it the byte counts would dominate the distance.
+    """
+    return make_pipeline(
+        StandardScaler(), KNeighborsClassifier(n_neighbors=k, metric=metric, algorithm="brute")
+    )
 
 
 def naive_bayes():

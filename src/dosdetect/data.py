@@ -1,4 +1,4 @@
-"""Load NSL-KDD, keep normal/DoS rows, encode, and pick the top-N features.
+"""Load NSL-KDD or KDDCup'99, keep normal/DoS rows, encode, and pick the top-N features.
 
 `prepare(split, n_features)` is the one entry point the notebooks and the CLI use.
 """
@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.datasets import fetch_kddcup99
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder
 
@@ -19,7 +20,10 @@ TRAIN_FILE = DATA_DIR / "KDDTrain+.txt"
 TEST_FILE = DATA_DIR / "KDDTest+.txt"
 DOWNLOAD_URL = "https://raw.githubusercontent.com/Jehuty4949/NSL_KDD/master/"
 
-SPLITS = ("official", "holdout")
+# official: NSL-KDD KDDTrain+ vs KDDTest+. holdout: 80/20 of KDDTrain+.
+# kddcup: 80/20 of the KDDCup'99 10% training file (its labelled test file is no longer
+# downloadable, so there is no official KDDCup split).
+SPLITS = ("official", "holdout", "kddcup")
 FEATURE_COUNTS = (8, 41)
 
 # Raw files have no header: 41 features, attack label, difficulty.
@@ -105,18 +109,37 @@ def download(timeout=60):
             part.unlink(missing_ok=True)
 
 
-def load(path):
-    """Read one NSL-KDD file, keep normal/DoS rows, add label (1 = DoS)."""
-    df = pd.read_csv(path, header=None, names=COLUMNS)
+def keep_dos(df):
+    """Keep normal/DoS rows and add label (1 = DoS)."""
     df = df[(df["attack"] == "normal") | df["attack"].isin(DOS_ATTACKS)].copy()
     df["label"] = (df["attack"] != "normal").astype(int)
     return df.reset_index(drop=True)
 
 
+def load(path):
+    """Read one NSL-KDD file, keep normal/DoS rows, add label (1 = DoS)."""
+    return keep_dos(pd.read_csv(path, header=None, names=COLUMNS))
+
+
+def load_kddcup():
+    """KDDCup'99 10% training file (downloaded and checksum-verified by scikit-learn)."""
+    df = fetch_kddcup99(percent10=True, as_frame=True, data_home=DATA_DIR).frame
+    df.columns = FEATURE_COLUMNS + ["attack"]
+    text = CATEGORICAL_COLUMNS + ["attack"]
+    df[text] = df[text].apply(lambda c: c.str.decode("ascii"))
+    df["attack"] = df["attack"].str.rstrip(".")  # "normal." -> "normal"
+    numeric = [c for c in FEATURE_COLUMNS if c not in CATEGORICAL_COLUMNS]
+    df[numeric] = df[numeric].astype(float)
+    return keep_dos(df)
+
+
 def load_split(split="official", seed=42):
-    """official: KDDTrain+ vs KDDTest+. holdout: stratified 80/20 of KDDTrain+."""
+    """Train and test frames for one split (see SPLITS); holdout splits are stratified 80/20."""
     if split not in SPLITS:
         raise ValueError(f"split must be one of {SPLITS}, got {split!r}")
+    if split == "kddcup":
+        df = load_kddcup()
+        return train_test_split(df, test_size=0.2, stratify=df["label"], random_state=seed)
     download()
     if split == "official":
         return load(TRAIN_FILE), load(TEST_FILE)
@@ -125,7 +148,12 @@ def load_split(split="official", seed=42):
 
 
 class Preprocessor:
-    """Ordinal-encode text columns, keep the top-N features by |correlation| (fit on train)."""
+    """Ordinal-encode text columns, keep the top-N features by |Spearman correlation|.
+
+    Spearman (rank) correlation is used because it reproduces the features the paper
+    names (dst_bytes, protocol_type, connection counts) on KDDCup'99; Pearson does not.
+    Everything is fit on the training data only.
+    """
 
     def __init__(self, n_features=8):
         if not 1 <= n_features <= len(FEATURE_COLUMNS):
@@ -136,10 +164,10 @@ class Preprocessor:
 
     def fit(self, df):
         X = self._encode(df, fit=True)
-        # Constant columns give NaN correlation; treat as 0.
+        # Spearman = Pearson on ranks. Constant columns give NaN; treat as 0.
         with np.errstate(divide="ignore", invalid="ignore"):  # older pandas warns on them
-            corr = X.corrwith(df["label"])
-        self.correlations = corr.abs().fillna(0).sort_values(ascending=False)
+            corr = X.rank().corrwith(df["label"].rank())
+        self.correlations = corr.abs().fillna(0).sort_values(ascending=False, kind="stable")
         self.selected_features = list(self.correlations.index[: self.n_features])
         return self
 
@@ -178,9 +206,10 @@ def prepare(split="official", n_features=8, seed=42):
 
 
 def prepare_all(seed=42):
-    """All four setups, keyed by (split, n_features)."""
+    """Every setup, keyed by (split, n_features)."""
     return {(s, n): prepare(s, n, seed) for s in SPLITS for n in FEATURE_COUNTS}
 
 
 if __name__ == "__main__":
     download()
+    load_kddcup()
