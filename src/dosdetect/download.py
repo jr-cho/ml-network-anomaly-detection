@@ -1,11 +1,8 @@
-"""Download the NSL-KDD train and test files into data/.
-
-Usage: python -m src.download_data
-"""
+"""Download NSL-KDD train/test files into data/ (python -m dosdetect.download)."""
 
 import urllib.request
 
-from src.data import DATA_DIR, TEST_FILE, TRAIN_FILE
+from dosdetect.data import DATA_DIR, TEST_FILE, TRAIN_FILE
 
 BASE_URL = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/"
 

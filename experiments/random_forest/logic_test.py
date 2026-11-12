@@ -1,27 +1,22 @@
-"""Check the Random Forest claims in BRAINSTORM.md against the real data.
+"""Check the Random Forest claims in docs/random_forest_notes.md (section 9).
 
-Results are summarised in BRAINSTORM.md section 9. Takes about 2 minutes.
-
-Usage (from the repo root):
-    python notebooks/rf_logic_test.py
+Prints results only, writes no files. ~2 min.
+Run: python experiments/random_forest/logic_test.py
 """
-import sys
-import time
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # so `src` imports work
-import numpy as np
+import time
+
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.inspection import permutation_importance
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.data import TRAIN_FILE, TEST_FILE, load
-from src.models import knn, naive_bayes
-from src.preprocess import Preprocessor
+from dosdetect.data import TEST_FILE, TRAIN_FILE, load
+from dosdetect.models import knn, naive_bayes
+from dosdetect.preprocess import Preprocessor
 
 SEED = 42
 UNSEEN = {"apache2", "processtable", "mailbomb", "udpstorm"}
@@ -40,8 +35,12 @@ def splits():
 
 
 def scores(y, p):
-    return dict(acc=accuracy_score(y, p), prec=precision_score(y, p),
-                rec=recall_score(y, p), f1=f1_score(y, p))
+    return dict(
+        acc=accuracy_score(y, p),
+        prec=precision_score(y, p),
+        rec=recall_score(y, p),
+        f1=f1_score(y, p),
+    )
 
 
 def fmt(d):
@@ -59,18 +58,30 @@ def main():
             Xte, yte = prep.transform(te)
             data[(split, n)] = (prep, Xtr, ytr, Xte, yte, te)
             for name, m in [("rf", rf()), ("knn", knn()), ("nb", naive_bayes())]:
-                t = time.perf_counter(); m.fit(Xtr, ytr); ft = time.perf_counter() - t
-                t = time.perf_counter(); p = m.predict(Xte); pt = time.perf_counter() - t
-                line = f"{split:8} {n:2}f {name:3} {fmt(scores(yte, p))}  fit={ft:.2f}s pred={pt:.2f}s"
+                t = time.perf_counter()
+                m.fit(Xtr, ytr)
+                ft = time.perf_counter() - t
+                t = time.perf_counter()
+                p = m.predict(Xte)
+                pt = time.perf_counter() - t
+                line = (
+                    f"{split:8} {n:2}f {name:3} {fmt(scores(yte, p))}  fit={ft:.2f}s pred={pt:.2f}s"
+                )
                 if name == "rf":
                     line += f"  oob={m.oob_score_:.4f}"
                 if split == "official":
                     dos = te["label"].values == 1
                     un = te["attack"].isin(UNSEEN).values
-                    seen_rec = p[dos & ~un].mean(); unseen_rec = p[dos & un].mean()
+                    seen_rec = p[dos & ~un].mean()
+                    unseen_rec = p[dos & un].mean()
                     line += f"\n{'':15} recall seen={seen_rec:.4f} unseen={unseen_rec:.4f}"
                     if name == "rf" and n == 8:
-                        per = te[dos].assign(pred=p[dos]).groupby("attack")["pred"].agg(["mean", "size"])
+                        per = (
+                            te[dos]
+                            .assign(pred=p[dos])
+                            .groupby("attack")["pred"]
+                            .agg(["mean", "size"])
+                        )
                         line += "\n" + per.to_string()
                 print(line, flush=True)
 
@@ -83,7 +94,8 @@ def main():
     print("\n=== T3: n_estimators plateau (OOB, official train, 8f) ===")
     m = RandomForestClassifier(warm_start=True, oob_score=True, n_jobs=-1, random_state=SEED)
     for n in (10, 25, 50, 100, 200, 300, 500):
-        m.set_params(n_estimators=n); m.fit(Xtr, ytr)
+        m.set_params(n_estimators=n)
+        m.fit(Xtr, ytr)
         print(f"  trees={n:3}  oob={m.oob_score_:.5f}")
 
     print("\n=== T4: max_features='sqrt' with 8 / 41 features ===")
@@ -97,34 +109,65 @@ def main():
     mdi = pd.Series(f.feature_importances_, Xtr.columns)
     _, hXtr, hytr, hXte, hyte, _ = data[("holdout", 41)]
     fh = rf().fit(hXtr, hytr)
-    pi_h = permutation_importance(fh, hXte, hyte, scoring="recall", n_repeats=5, random_state=SEED, n_jobs=-1)
-    pi_o = permutation_importance(f, Xte, yte, scoring="recall", n_repeats=5, random_state=SEED, n_jobs=-1)
+    pi_h = permutation_importance(
+        fh, hXte, hyte, scoring="recall", n_repeats=5, random_state=SEED, n_jobs=-1
+    )
+    pi_o = permutation_importance(
+        f, Xte, yte, scoring="recall", n_repeats=5, random_state=SEED, n_jobs=-1
+    )
     nunique = Xtr.nunique()
-    tbl = pd.DataFrame({"mdi": mdi, "perm_holdout": pd.Series(pi_h.importances_mean, hXte.columns),
-                        "perm_official": pd.Series(pi_o.importances_mean, Xte.columns),
-                        "abs_corr": prep.correlations.reindex(Xtr.columns), "n_unique": nunique})
+    tbl = pd.DataFrame(
+        {
+            "mdi": mdi,
+            "perm_holdout": pd.Series(pi_h.importances_mean, hXte.columns),
+            "perm_official": pd.Series(pi_o.importances_mean, Xte.columns),
+            "abs_corr": prep.correlations.reindex(Xtr.columns),
+            "n_unique": nunique,
+        }
+    )
     print(tbl.sort_values("mdi", ascending=False).head(12).round(4).to_string())
-    print("  top by perm_official:", list(tbl["perm_official"].sort_values(ascending=False).index[:6]))
-    print(f"  Spearman(MDI rank, n_unique) = {tbl['mdi'].corr(tbl['n_unique'], method='spearman'):.3f}")
+    print(
+        "  top by perm_official:", list(tbl["perm_official"].sort_values(ascending=False).index[:6])
+    )
+    print(
+        f"  Spearman(MDI rank, n_unique) = {tbl['mdi'].corr(tbl['n_unique'], method='spearman'):.3f}"
+    )
     print(f"  Top-8 by correlation: {prep.selected_features[:8]}")
     print(f"  Top-8 by MDI:         {list(mdi.sort_values(ascending=False).index[:8])}")
 
     print("\n=== T6: class_weight effect (official, 8f) ===")
     _, Xtr, ytr, Xte, yte, _ = data[("official", 8)]
     for cw in (None, "balanced", "balanced_subsample"):
-        print(f"  {str(cw):20} {fmt(scores(yte, rf(class_weight=cw, oob_score=False).fit(Xtr, ytr).predict(Xte)))}")
+        print(
+            f"  {str(cw):20} {fmt(scores(yte, rf(class_weight=cw, oob_score=False).fit(Xtr, ytr).predict(Xte)))}"
+        )
 
-    print("\n=== T7: cheap RandomizedSearchCV on train only (scored by recall), then official test ===")
+    print(
+        "\n=== T7: cheap RandomizedSearchCV on train only (scored by recall), then official test ==="
+    )
     for n in (8, 41):
         _, Xtr, ytr, Xte, yte, _ = data[("official", n)]
-        space = dict(max_features=["sqrt", "log2", 0.3, 0.5, 1.0], min_samples_leaf=[1, 2, 5, 10, 20],
-                     max_depth=[None, 10, 20, 30], max_samples=[None, 0.5, 0.8],
-                     class_weight=[None, "balanced", "balanced_subsample"], criterion=["gini", "entropy"])
+        space = dict(
+            max_features=["sqrt", "log2", 0.3, 0.5, 1.0],
+            min_samples_leaf=[1, 2, 5, 10, 20],
+            max_depth=[None, 10, 20, 30],
+            max_samples=[None, 0.5, 0.8],
+            class_weight=[None, "balanced", "balanced_subsample"],
+            criterion=["gini", "entropy"],
+        )
         t = time.perf_counter()
-        s = RandomizedSearchCV(RandomForestClassifier(n_estimators=100, random_state=SEED), space, n_iter=15,
-                               scoring="recall", cv=StratifiedKFold(3, shuffle=True, random_state=SEED),
-                               n_jobs=-1, random_state=SEED).fit(Xtr, ytr)
-        print(f"  {n}f search {time.perf_counter()-t:.0f}s  best cv recall={s.best_score_:.5f}  {s.best_params_}")
+        s = RandomizedSearchCV(
+            RandomForestClassifier(n_estimators=100, random_state=SEED),
+            space,
+            n_iter=15,
+            scoring="recall",
+            cv=StratifiedKFold(3, shuffle=True, random_state=SEED),
+            n_jobs=-1,
+            random_state=SEED,
+        ).fit(Xtr, ytr)
+        print(
+            f"  {n}f search {time.perf_counter() - t:.0f}s  best cv recall={s.best_score_:.5f}  {s.best_params_}"
+        )
         tuned = rf(oob_score=False, **s.best_params_).fit(Xtr, ytr).predict(Xte)
         print(f"     tuned on official:   {fmt(scores(yte, tuned))}")
 

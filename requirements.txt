@@ -1,5 +1,6 @@
-pandas>=2.2
-numpy>=1.26
-scikit-learn>=1.5
-matplotlib>=3.8
-jupyter>=1.0
+# Exact versions used to produce the committed results (Python 3.12.3).
+# Looser ranges for installing as a library are in pyproject.toml.
+numpy==2.5.4
+pandas==3.1.1
+scikit-learn==1.9.1
+matplotlib==3.11.2
