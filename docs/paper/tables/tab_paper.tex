@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering
+\caption{Reproduction of the reference results with 8 features (percent). NSL-KDD is the official split and KDDCup our 80/20 split. The paper reports one value across both datasets, so the mean of our two datasets is the like-for-like column. Diff.\ is our mean minus the paper, in percentage points.}
+\label{tab:paper}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{llrrrrr}
+\toprule
+Model & Metric & NSL-KDD & KDDCup & Mean & Reported & Diff. \\
+\midrule
+\multirow{3}{*}{KNN} & accuracy & 86.66 & 99.88 & 93.27 & 98.51 & $-$5.24 \\
+ & precision & 93.09 & 99.93 & 96.51 & 98.90 & $-$2.39 \\
+ & recall & 74.83 & 99.92 & 87.38 & 97.80 & $-$10.42 \\
+\midrule
+\multirow{3}{*}{Naive Bayes} & accuracy & 87.12 & 98.72 & 92.92 & 93.95 & $-$1.03 \\
+ & precision & 92.93 & 99.43 & 96.18 & 97.74 & $-$1.56 \\
+ & recall & 76.15 & 98.96 & 87.56 & 95.54 & $-$7.98 \\
+\bottomrule
+\end{tabular}
+\end{table}
