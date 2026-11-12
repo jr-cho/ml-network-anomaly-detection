@@ -10,7 +10,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from dosdetect.data import Preprocessor
-from dosdetect.evaluate import TABLE_COLUMNS, evaluate, metrics_table, paper_table, plot_confusions
+from dosdetect.evaluate import (
+    TABLE_COLUMNS,
+    benchmark,
+    evaluate,
+    metrics_table,
+    paper_table,
+    plot_confusions,
+)
 from dosdetect.models import MODELS, knn, random_forest, random_forest_tuned
 
 
@@ -35,6 +42,26 @@ def test_model_learns_separable_data(name, split):
     assert is_classifier(model)
     clone(model)  # raises if the estimator breaks scikit-learn's conventions
     assert evaluate(model, split)["accuracy"] > 0.9
+
+
+def test_evaluate_still_returns_times_but_tables_omit_them():
+    r = evaluate(FixedPredictions(Y_PRED), fixed_data([0] * 8))
+    assert r["train_time_s"] >= 0 and r["predict_time_s"] >= 0
+    assert not [c for c in TABLE_COLUMNS if c.endswith("_time_s")]
+
+
+def test_benchmark_times_a_fresh_model_each_repeat(split):
+    made = []
+
+    def make():
+        made.append(knn())
+        return made[-1]
+
+    r = benchmark(make, split, repeats=3)
+    assert len(made) == 3 and len({id(m) for m in made}) == 3
+    assert r["repeats"] == 3
+    for name in ("train_s", "predict_s"):
+        assert 0 <= r[f"{name}_min"] <= r[f"{name}_median"] <= r[f"{name}_max"]
 
 
 def test_knn_scales_features():

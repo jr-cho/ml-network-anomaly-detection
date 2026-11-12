@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from dosdetect import data, run
@@ -15,6 +16,12 @@ def test_full_run_writes_metrics_csv(fake_prepare):
     df = run.main([])
     assert (fake_prepare / "metrics.csv").exists()
     assert len(df) == len(run.MODELS) * len(data.SPLITS) * len(data.FEATURE_COUNTS)
+
+
+def test_metrics_csv_has_no_time_columns(fake_prepare):
+    df = run.main([])
+    saved = pd.read_csv(fake_prepare / "metrics.csv")
+    assert not [c for c in [*df, *saved] if c.endswith("_time_s")]
 
 
 def test_partial_run_does_not_overwrite_metrics_csv(fake_prepare):

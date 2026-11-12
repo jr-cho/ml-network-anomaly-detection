@@ -29,8 +29,6 @@ TABLE_COLUMNS = [
     "f1",
     "recall_seen",
     "recall_unseen",
-    "train_time_s",
-    "predict_time_s",
 ]
 
 
@@ -66,6 +64,25 @@ def evaluate(model, data):
     if hasattr(final, "oob_score_"):
         result["oob_score"] = final.oob_score_
     return result
+
+
+def benchmark(make_model, data, repeats=5):
+    """Fit and predict a fresh `make_model()` `repeats` times; median, min and max seconds."""
+    train, predict = [], []
+    for _ in range(repeats):
+        model = make_model()
+        start = time.perf_counter()
+        model.fit(data["X_train"], data["y_train"])
+        train.append(time.perf_counter() - start)
+        start = time.perf_counter()
+        model.predict(data["X_test"])
+        predict.append(time.perf_counter() - start)
+    result = {}
+    for name, times in (("train_s", train), ("predict_s", predict)):
+        result[f"{name}_median"] = float(np.median(times))
+        result[f"{name}_min"] = min(times)
+        result[f"{name}_max"] = max(times)
+    return {**result, "repeats": repeats}
 
 
 def evaluate_all(make_model, data):

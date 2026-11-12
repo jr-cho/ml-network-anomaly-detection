@@ -10,6 +10,8 @@ kddcup (stratified 80/20 of the KDDCup'99 10% file).
 A run that includes official and kddcup at 8 features also prints the KNN and Naive
 Bayes comparison with the paper's two-dataset numbers.
 
+Times are not recorded here: one run is too noisy. See dosdetect.timing.
+
 Only a full run (all models, splits and feature counts) writes results/metrics.csv,
 so a partial run never overwrites the committed results. Use --out to save one.
 """
@@ -62,7 +64,8 @@ def main(argv=None):
             data = prepare(split, n)
             for name in args.models:
                 r = evaluate(MODELS[name](), data)
-                r.pop("confusion_matrix")
+                for key in ("confusion_matrix", "train_time_s", "predict_time_s"):
+                    r.pop(key)
                 rows.append({"split": split, "n_features": n, "model": name, **r})
 
     df = pd.DataFrame(rows)
