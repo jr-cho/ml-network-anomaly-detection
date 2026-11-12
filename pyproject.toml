@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dosdetect"
 version = "0.1.0"
-description = "DoS detection on NSL-KDD: reproduction of Tundis & Cauteruccio (DCOSS-IoT 2025), extended with tree-based models."
+description = "DoS detection on NSL-KDD and KDDCup'99: reproduction of Tundis & Cauteruccio (DCOSS-IoT 2025), extended with tree-based models."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ name = "Joshua Gottus" }, { name = "Ethan Barron" }]
 dependencies = [
     "numpy>=1.26",
@@ -29,7 +29,7 @@ addopts = "-ra"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
