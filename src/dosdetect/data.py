@@ -1,13 +1,24 @@
-"""Load NSL-KDD and label each row as normal (0) or DoS (1)."""
+"""Load NSL-KDD, keep normal/DoS rows, encode, and pick the top-N features.
 
+`prepare(split, n_features)` is the one entry point the notebooks and the CLI use.
+"""
+
+import urllib.request
 from pathlib import Path
 
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder
 
-from dosdetect.paths import DATA_DIR
-
+ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = ROOT / "data"
+RESULTS_DIR = ROOT / "results"
 TRAIN_FILE = DATA_DIR / "KDDTrain+.txt"
 TEST_FILE = DATA_DIR / "KDDTest+.txt"
+DOWNLOAD_URL = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/"
+
+SPLITS = ("official", "holdout")
+FEATURE_COUNTS = (8, 41)
 
 # Raw files have no header: 41 features, attack label, difficulty.
 FEATURE_COLUMNS = [
@@ -71,11 +82,85 @@ DOS_ATTACKS = {
 }
 
 
+def download():
+    """Fetch KDDTrain+.txt and KDDTest+.txt into data/ if missing."""
+    DATA_DIR.mkdir(exist_ok=True)
+    for path in (TRAIN_FILE, TEST_FILE):
+        if not path.exists():
+            print(f"Downloading {path.name}...")
+            urllib.request.urlretrieve(DOWNLOAD_URL + path.name, path)
+
+
 def load(path):
     """Read one NSL-KDD file, keep normal/DoS rows, add label (1 = DoS)."""
-    if not Path(path).exists():
-        raise FileNotFoundError(f"{path} not found. Run `python -m dosdetect.download` first.")
     df = pd.read_csv(path, header=None, names=COLUMNS)
     df = df[(df["attack"] == "normal") | df["attack"].isin(DOS_ATTACKS)].copy()
     df["label"] = (df["attack"] != "normal").astype(int)
     return df.reset_index(drop=True)
+
+
+def load_split(split="official", seed=42):
+    """official: KDDTrain+ vs KDDTest+. holdout: stratified 80/20 of KDDTrain+."""
+    download()
+    if split == "official":
+        return load(TRAIN_FILE), load(TEST_FILE)
+    df = load(TRAIN_FILE)
+    return train_test_split(df, test_size=0.2, stratify=df["label"], random_state=seed)
+
+
+class Preprocessor:
+    """Ordinal-encode text columns, keep the top-N features by |correlation| (fit on train)."""
+
+    def __init__(self, n_features=8):
+        self.n_features = n_features
+        # Categories missing from training become -1 at test time.
+        self.encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
+
+    def fit(self, df):
+        X = self._encode(df, fit=True)
+        # Constant columns give NaN correlation; treat as 0.
+        self.correlations = X.corrwith(df["label"]).abs().fillna(0).sort_values(ascending=False)
+        self.selected_features = list(self.correlations.index[: self.n_features])
+        return self
+
+    def transform(self, df):
+        return self._encode(df, fit=False)[self.selected_features], df["label"]
+
+    def fit_transform(self, df):
+        return self.fit(df).transform(df)
+
+    def _encode(self, df, fit):
+        X = df[FEATURE_COLUMNS].copy()
+        cats = X[CATEGORICAL_COLUMNS]
+        X[CATEGORICAL_COLUMNS] = (
+            self.encoder.fit_transform(cats) if fit else self.encoder.transform(cats)
+        )
+        return X.astype(float)
+
+
+def prepare(split="official", n_features=8, seed=42):
+    """Load and preprocess one setup; `unseen` marks test DoS types absent from training."""
+    train_df, test_df = load_split(split, seed)
+    prep = Preprocessor(n_features)
+    X_train, y_train = prep.fit_transform(train_df)
+    X_test, y_test = prep.transform(test_df)
+    unseen = (test_df["label"] == 1) & ~test_df["attack"].isin(train_df["attack"])
+    return {
+        "X_train": X_train,
+        "y_train": y_train,
+        "X_test": X_test,
+        "y_test": y_test,
+        "unseen": unseen.to_numpy(),
+        "prep": prep,
+        "train_df": train_df,
+        "test_df": test_df,
+    }
+
+
+def prepare_all(seed=42):
+    """All four setups, keyed by (split, n_features)."""
+    return {(s, n): prepare(s, n, seed) for s in SPLITS for n in FEATURE_COUNTS}
+
+
+if __name__ == "__main__":
+    download()

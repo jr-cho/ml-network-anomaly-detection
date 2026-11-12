@@ -36,7 +36,7 @@ def random_forest(n_estimators=300, seed=42):
 
 
 def random_forest_tuned(seed=42, n_keep=5):
-    """RF tuned for unseen attacks; use --n-features 41 (docs/random_forest_notes.md §11)."""
+    """RF tuned for unseen attacks; best with all 41 features (notebook 04)."""
     selector = SelectFromModel(
         RandomForestClassifier(n_estimators=50, n_jobs=-1, random_state=seed),
         threshold=-float("inf"),  # rank only; keep exactly the top n_keep

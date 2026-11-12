@@ -13,6 +13,6 @@ dist/
 .ruff_cache/
 .ipynb_checkpoints/
 
-# Dataset files (download with: make data)
+# Dataset files (downloaded automatically on first use)
 data/*
 !data/.gitkeep

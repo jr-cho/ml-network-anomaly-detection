@@ -20,10 +20,6 @@ dependencies = [
 notebooks = ["jupyter>=1.0", "nbconvert>=7", "ipykernel>=6"]
 dev = ["pytest>=8", "ruff>=0.6", "nbformat>=5"]
 
-[project.scripts]
-dosdetect-run = "dosdetect.run:main"
-dosdetect-download = "dosdetect.download:main"
-
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -35,9 +31,6 @@ addopts = "-ra"
 line-length = 100
 target-version = "py310"
 extend-include = ["*.ipynb"]
-
-[tool.ruff.format]
-exclude = ["*.md"]  # leave code snippets in docs as written
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "NPY"]
