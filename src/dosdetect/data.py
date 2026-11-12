@@ -7,6 +7,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder
@@ -136,7 +137,9 @@ class Preprocessor:
     def fit(self, df):
         X = self._encode(df, fit=True)
         # Constant columns give NaN correlation; treat as 0.
-        self.correlations = X.corrwith(df["label"]).abs().fillna(0).sort_values(ascending=False)
+        with np.errstate(divide="ignore", invalid="ignore"):  # older pandas warns on them
+            corr = X.corrwith(df["label"])
+        self.correlations = corr.abs().fillna(0).sort_values(ascending=False)
         self.selected_features = list(self.correlations.index[: self.n_features])
         return self
 

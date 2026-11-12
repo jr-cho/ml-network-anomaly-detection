@@ -1,5 +1,7 @@
 """Model factories, one per model; MODELS maps names to them."""
 
+from functools import partial
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel
 from sklearn.naive_bayes import GaussianNB
@@ -35,12 +37,17 @@ def random_forest(n_estimators=300, seed=42):
     )
 
 
+def at_most(X, n):
+    """Keep at most n features; older scikit-learn rejects max_features > n_features."""
+    return min(n, X.shape[1])
+
+
 def random_forest_tuned(seed=42, n_keep=5):
     """RF tuned for unseen attacks; best with all 41 features (notebook 04)."""
     selector = SelectFromModel(
         RandomForestClassifier(n_estimators=50, n_jobs=-1, random_state=seed),
         threshold=-float("inf"),  # rank only; keep the top n_keep (all if fewer)
-        max_features=n_keep,
+        max_features=partial(at_most, n=n_keep),
     )
     forest = RandomForestClassifier(
         n_estimators=300,
