@@ -14,7 +14,8 @@ from sklearn.metrics import (
     recall_score,
 )
 
-# Paper results (Section IV-A).
+# Results the paper reports in Section IV-A. They come from its source study [4] and are
+# given "across the two datasets" (KDDCup and NSL-KDD), so they are not NSL-KDD-only.
 PAPER_RESULTS = {
     "knn": {"accuracy": 0.9851, "precision": 0.989, "recall": 0.978},
     "naive_bayes": {"accuracy": 0.9395, "precision": 0.9774, "recall": 0.9554},
@@ -83,14 +84,14 @@ def metrics_table(results):
 
 
 def paper_table(name, results):
-    """Our 8-feature metrics on both splits vs the paper's (KNN, Naive Bayes)."""
+    """Our 8-feature metrics on both splits vs the paper's reported ones (KNN, Naive Bayes)."""
     paper = PAPER_RESULTS[name]
     return pd.concat(
         {
             f"{split}, 8 features": pd.DataFrame(
                 {
                     "ours": {m: results[(split, 8)][m] for m in paper},
-                    "paper": paper,
+                    "paper [4]": paper,
                     "difference": {m: results[(split, 8)][m] - paper[m] for m in paper},
                 }
             )

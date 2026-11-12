@@ -60,11 +60,14 @@ def main(argv=None):
                 rows.append({"split": split, "n_features": n, "model": name, **r})
 
     df = pd.DataFrame(rows)
-    paper = pd.DataFrame(PAPER_RESULTS).T.add_suffix(" (paper)")
+    paper = pd.DataFrame(PAPER_RESULTS).T.add_suffix(" (paper [4])")
     cols = ["split", "n_features", "model", "accuracy", "precision", "recall", "f1"]
     cols += [c for c in ("recall_unseen",) if c in df]
     print(df[cols].to_string(index=False, float_format="%.4f"))
-    print("\nPaper (Section IV-A):\n" + paper.to_string(float_format="%.4f"))
+    print(
+        "\nReported by the paper (Section IV-A, from [4], KDDCup + NSL-KDD):\n"
+        + paper.to_string(float_format="%.4f")
+    )
 
     out = args.out
     chosen = (args.models, args.split, args.n_features)

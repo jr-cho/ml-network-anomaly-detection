@@ -1,4 +1,4 @@
-"""Model factories; distance-based models need StandardScaler."""
+"""Model factories, one per model; MODELS maps names to them."""
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel
@@ -10,7 +10,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 
 def knn(k=5, metric="euclidean"):
-    """KNN as in the paper (scaled, Euclidean)."""
+    """KNN with Euclidean distance as in the paper; scaling is our addition."""
     return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=k, metric=metric))
 
 

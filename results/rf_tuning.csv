@@ -1,5 +1,5 @@
 config,f1_mean,recall_seen_mean,recall_unseen_mean,f1_std,recall_seen_std,recall_unseen_std,params
-"default, paper 8",0.7859,0.8128,0.1289,0.0023,0.0008,0.0124,{'select__max_features': 8}
+"default, top 8",0.7859,0.8128,0.1289,0.0023,0.0008,0.0124,{'select__max_features': 8}
 "default, 41",0.8726,0.9954,0.0727,0.0040,0.0008,0.0263,{'select__max_features': 41}
 tuned (standard CV),0.8886,0.9956,0.1877,0.0040,0.0008,0.0288,"{'select__max_features': 41, 'rf__min_samples_leaf': 1, 'rf__max_samples': 0.8, 'rf__max_features': 0.3, 'rf__max_depth': None, 'rf__criterion': 'entropy', 'rf__class_weight': None}"
 tuned (attack-out CV),0.8893,0.9613,0.2973,0.0132,0.0182,0.1075,"{'select__max_features': 5, 'rf__min_samples_leaf': 2, 'rf__max_samples': None, 'rf__max_features': 0.5, 'rf__max_depth': 10, 'rf__criterion': 'gini', 'rf__class_weight': 'balanced_subsample'}"
