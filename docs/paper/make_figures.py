@@ -36,6 +36,7 @@ MODEL_COLORS = {
     "decision_tree": "#1baf7a",
     "random_forest": "#eda100",
     "random_forest_tuned": "#e87ba4",
+    "svm": "#008300",
 }
 MODEL_LABELS = {
     "knn": "KNN",
@@ -43,6 +44,7 @@ MODEL_LABELS = {
     "decision_tree": "Decision tree",
     "random_forest": "Random forest",
     "random_forest_tuned": "Tuned forest",
+    "svm": "SVM",
 }
 DATASET_LABELS = {"nsl-kdd": "NSL-KDD", "kddcup": "KDDCup"}
 SPLIT_LABELS = {
@@ -195,8 +197,8 @@ def fig_seen_unseen():
             ax.plot(r.recall_seen, i, "o", color=c, ms=5, zorder=2)
             ax.text(r.recall_unseen - 0.025, i, f"{r.recall_unseen:.2f}", ha="right", va="center")
             ax.text(r.recall_seen + 0.025, i, f"{r.recall_seen:.2f}", ha="left", va="center")
-        ax.set_yticks(range(5), [MODEL_LABELS[k] for k in MODEL_COLORS])
-        ax.set_ylim(4.6, -0.6)
+        ax.set_yticks(range(len(sub)), [MODEL_LABELS[k] for k in MODEL_COLORS])
+        ax.set_ylim(len(sub) - 0.4, -0.6)
         ax.set_xlim(-0.14, 1.14)
         ax.set_xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
         ax.set_title(f"{nf} features", loc="left")
@@ -330,7 +332,7 @@ def fig_timing():
         ax.yaxis.grid(True)
         ax.set_axisbelow(True)
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=5, bbox_to_anchor=(0.5, -0.06))
+    fig.legend(handles, labels, loc="lower center", ncol=len(models), bbox_to_anchor=(0.5, -0.06))
     fig.tight_layout()
     save(fig, "fig_timing")
 

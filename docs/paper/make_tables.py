@@ -25,6 +25,7 @@ MODEL_NAMES = {
     "decision_tree": "Decision Tree",
     "random_forest": "Random Forest",
     "random_forest_tuned": "RF (tuned)",
+    "svm": "SVM",
 }
 MODELS = list(MODEL_NAMES)
 DATASET_NAMES = {"nsl-kdd": "NSL-KDD", "kddcup": "KDDCup"}
@@ -285,7 +286,13 @@ def prose_macros(metrics, ao, g, tm, rf):
         un = off.loc[nf].recall_unseen
         mac[f"unseenMin{tag}"] = pct(un.min())
         mac[f"unseenMax{tag}"] = pct(un.max())
-        for m, mt in (("knn", "Knn"), ("naive_bayes", "Nb"), ("decision_tree", "Dt")):
+        for m, mt in (
+            ("knn", "Knn"),
+            ("naive_bayes", "Nb"),
+            ("decision_tree", "Dt"),
+            ("svm", "Svm"),
+        ):
+            mac[f"offFone{mt}{tag}"] = pct(off.loc[(nf, m)].f1)
             mac[f"unseen{mt}{tag}"] = pct(off.loc[(nf, m)].recall_unseen)
             mac[f"seen{mt}{tag}"] = pct(off.loc[(nf, m)].recall_seen)
             mac[f"offAcc{mt}{tag}"] = pct(off.loc[(nf, m)].accuracy)
@@ -298,10 +305,26 @@ def prose_macros(metrics, ao, g, tm, rf):
         mac[f"nbAccEight{st}"] = pct(d.loc[(8, "naive_bayes")].accuracy)
         mac[f"nbAccAll{st}"] = pct(d.loc[(41, "naive_bayes")].accuracy)
         mac[f"minAccAll{st}"] = pct(d.loc[41].drop("naive_bayes").accuracy.min())
+    mac["svmAccEightHold"] = pct(
+        metrics[(metrics.split == "holdout") & (metrics.n_features == 8) & (metrics.model == "svm")]
+        .iloc[0]
+        .accuracy
+    )
     mac["nbAccEightOff"] = pct(off.loc[(8, "naive_bayes")].accuracy)
     mac["nbAccAllOff"] = pct(off.loc[(41, "naive_bayes")].accuracy)
-    for m, mt in (("decision_tree", "Dt"), ("random_forest", "Rf"), ("random_forest_tuned", "Rft")):
+    for m, mt in (
+        ("decision_tree", "Dt"),
+        ("random_forest", "Rf"),
+        ("random_forest_tuned", "Rft"),
+        ("svm", "Svm"),
+    ):
         mac[f"offAccAll{mt}"] = pct(off.loc[(41, m)].accuracy)
+
+    # does NB have the highest unseen recall, and the second highest at 41 features?
+    for nf, tag in ((8, "Eight"), (41, "All")):
+        un = off.loc[nf].recall_unseen.sort_values(ascending=False)
+        mac[f"unseenTopIsNb{tag}"] = "yes" if un.index[0] == "naive_bayes" else "no"
+        mac[f"unseenSvmRank{tag}"] = str(list(un.index).index("svm") + 1)
 
     # leave-one-attack-out
     non_nb = ao[ao.model != "naive_bayes"]
@@ -309,6 +332,19 @@ def prose_macros(metrics, ao, g, tm, rf):
     mac["loaoUnderHalf"] = str(int((non_nb.recall_heldout < 0.5).sum()))
     mac["loaoSeenMin"] = pct(non_nb.recall_seen.min())
     mac["loaoFaMax"] = pct(non_nb.false_alarm_rate.max())
+    sv = ao[ao.model == "svm"]
+    mac["svmLoaoN"] = str(len(sv))
+    mac["svmLoaoUnderHalf"] = str(int((sv.recall_heldout < 0.5).sum()))
+    mac["svmLoaoSeenMin"] = pct(sv.recall_seen.min())
+    mac["svmLoaoFaMax"] = pct(sv.false_alarm_rate.max())
+    mac["svmLoaoMeanMax"] = pct(g.xs("svm", level="model").recall_heldout.max())
+    over = sv[sv.recall_heldout >= 0.5]
+    mac["svmLoaoOverN"] = str(len(over))
+    if len(over):
+        o = over.iloc[0]
+        mac["svmLoaoOverRec"] = pct(o.recall_heldout)
+        mac["svmLoaoOverGroup"] = "\\texttt{" + o.group + "}"
+        mac["svmLoaoOverSetup"] = f"{DATASET_NAMES[o.dataset]} with {int(o.n_features)} features"
     knn_means = g.xs("knn", level="model").recall_heldout
     mac["knnLoaoMax"] = pct(knn_means.max())
     nb = g.xs("naive_bayes", level="model")
@@ -335,7 +371,11 @@ def prose_macros(metrics, ao, g, tm, rf):
     mac["nbSmurfCupFa"] = pct(sc.false_alarm_rate)
     for ds, dt in (("nsl-kdd", "Nsl"), ("kddcup", "Cup")):
         for nf, ft in ((8, "Eight"), (41, "All")):
-            for m, mt in (("random_forest", "Rf"), ("random_forest_tuned", "Rft")):
+            for m, mt in (
+                ("random_forest", "Rf"),
+                ("random_forest_tuned", "Rft"),
+                ("svm", "Svm"),
+            ):
                 mac[f"loao{dt}{ft}{mt}"] = pct(g.loc[(ds, nf, m)].recall_heldout)
 
     # timing
@@ -347,6 +387,29 @@ def prose_macros(metrics, ao, g, tm, rf):
         t = tm[tm.model == m]
         mac[f"train{mt}Min"] = f"{t.train_ratio_vs_decision_tree.min():.1f}"
         mac[f"train{mt}Max"] = f"{t.train_ratio_vs_decision_tree.max():.1f}"
+    # SVM cost, and which model is most expensive on how many setups
+    nset = len(tm.groupby(["split", "n_features"]))
+    mac["nSetups"] = str(nset)
+    sv = tm[tm.model == "svm"]
+    for nf, tag in ((8, "Eight"), (41, "All")):
+        s_nf = sv[sv.n_features == nf].train_s_median
+        mac[f"svmTrain{tag}Min"] = f"{s_nf.min():.1f}"
+        mac[f"svmTrain{tag}Max"] = f"{s_nf.max():.1f}"
+    mac["svmTrainRatioMin"] = f"{sv.train_ratio_vs_decision_tree.min():.1f}"
+    mac["svmTrainRatioMax"] = f"{sv.train_ratio_vs_decision_tree.max():.0f}"
+    mac["svmPredMin"] = f"{sv.predict_ratio_vs_naive_bayes.min():.1f}"
+    mac["svmPredMax"] = f"{sv.predict_ratio_vs_naive_bayes.max():.0f}"
+    mac["svmPredSecMax"] = f"{sv.predict_s_median.max():.1f}"
+    mac["svmTrainSecMax"] = f"{sv.train_s_median.max():.1f}"
+    top_train = tm.loc[tm.groupby(["split", "n_features"]).train_s_median.idxmax()].model
+    top_pred = tm.loc[tm.groupby(["split", "n_features"]).predict_s_median.idxmax()].model
+    mac["svmTrainTopN"] = str(int((top_train == "svm").sum()))
+    mac["svmPredTopN"] = str(int((top_pred == "svm").sum()))
+    mac["knnPredTopN"] = str(int((top_pred == "knn").sum()))
+    forest = tm[tm.model.isin(["random_forest", "random_forest_tuned"])]
+    fmax = forest.groupby(["split", "n_features"]).train_s_median.max()
+    smed = sv.set_index(["split", "n_features"]).train_s_median
+    mac["forestAboveSvmN"] = str(int((fmax > smed.reindex(fmax.index)).sum()))
     mac["knnPredCupAll"] = f"{tmx.loc[('kddcup', 41, 'knn')].predict_s_median:.2f}"
     mac["rfTrainCupAll"] = f"{tmx.loc[('kddcup', 41, 'random_forest')].train_s_median:.2f}"
     dtp = tm[tm.model == "decision_tree"].predict_ratio_vs_naive_bayes
