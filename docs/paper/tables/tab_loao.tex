@@ -1,0 +1,28 @@
+\begin{table*}[t]
+\centering
+\caption{Leave-one-attack-out, mean over the four held-out groups (percent, one seed). Held-out is recall on the withheld DoS types, Seen is recall on the DoS types kept in training, and FA is the false-alarm rate on normal traffic.}
+\label{tab:loao}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lrrrrrrr}
+\toprule
+ & & \multicolumn{3}{c}{NSL-KDD} & \multicolumn{3}{c}{KDDCup} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}
+Model & Feat. & Held-out & Seen & FA & Held-out & Seen & FA \\
+\midrule
+KNN & 8 & 1.79 & 97.99 & 0.32 & 0.73 & 99.96 & 0.29 \\
+Naive Bayes & 8 & 36.46 & 92.44 & 30.87 & 43.84 & 98.80 & 3.50 \\
+Decision Tree & 8 & 2.91 & 98.41 & 0.13 & 25.71 & 99.97 & 0.07 \\
+Random Forest & 8 & 2.42 & 98.45 & 0.12 & 23.78 & 99.97 & 0.05 \\
+RF (tuned) & 8 & 0.47 & 98.23 & 0.21 & 17.69 & 99.74 & 0.05 \\
+SVM & 8 & 0.41 & 97.17 & 0.37 & 19.35 & 99.31 & 0.03 \\
+\midrule
+KNN & 41 & 0.64 & 99.62 & 0.05 & 0.67 & 99.99 & 0.01 \\
+Naive Bayes & 41 & 48.67 & 98.68 & 45.61 & 18.58 & 98.86 & 9.86 \\
+Decision Tree & 41 & 4.61 & 99.94 & 0.06 & 4.63 & 100.00 & 0.01 \\
+Random Forest & 41 & 2.18 & 99.94 & 0.02 & 0.97 & 100.00 & 0.00 \\
+RF (tuned) & 41 & 0.93 & 99.80 & 0.22 & 28.84 & 99.33 & 0.04 \\
+SVM & 41 & 0.76 & 99.89 & 0.06 & 0.00 & 99.99 & 0.01 \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -1,0 +1,26 @@
+\begin{table*}[t]
+\centering
+\caption{NSL-KDD official split (train on KDDTrain+, test on KDDTest+), percent. Rec.\ seen and Rec.\ unseen are recall on DoS types present and absent in training.}
+\label{tab:official}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lrrrrrrr}
+\toprule
+Model & Feat. & Acc. & Prec. & Rec. & F1 & Rec.\ seen & Rec.\ unseen \\
+\midrule
+KNN & 8 & 86.66 & 93.09 & 74.83 & 82.97 & 87.67 & 31.92 \\
+Naive Bayes & 8 & 87.12 & 92.93 & 76.15 & 83.71 & 85.16 & 46.01 \\
+Decision Tree & 8 & 84.97 & 92.79 & 70.92 & 80.39 & 86.52 & 18.75 \\
+Random Forest & 8 & 85.43 & 92.99 & 71.87 & 81.08 & 87.42 & 19.86 \\
+RF (tuned) & 8 & 86.39 & 93.23 & 74.05 & 82.54 & 87.25 & 29.94 \\
+SVM & 8 & 86.76 & 93.00 & 75.17 & 83.14 & 86.87 & 36.05 \\
+\midrule
+KNN & 41 & 89.53 & 99.00 & 76.67 & 86.41 & 97.53 & 6.93 \\
+Naive Bayes & 41 & 61.78 & 53.95 & 82.06 & 65.10 & 93.36 & 44.26 \\
+Decision Tree & 41 & 91.33 & 96.51 & 83.05 & 89.28 & 98.68 & 30.81 \\
+Random Forest & 41 & 90.12 & 98.45 & 78.48 & 87.34 & 99.49 & 8.21 \\
+RF (tuned) & 41 & 90.59 & 98.93 & 79.20 & 87.97 & 94.83 & 26.97 \\
+SVM & 41 & 93.03 & 99.21 & 84.62 & 91.34 & 98.95 & 36.69 \\
+\bottomrule
+\end{tabular}
+\end{table*}

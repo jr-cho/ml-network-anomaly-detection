@@ -1,0 +1,18 @@
+\begin{table}[t]
+\centering
+\caption{Number of connection records per setup after keeping only normal and DoS traffic. The last column counts test DoS records whose attack type never appears in training.}
+\label{tab:data}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lrrrrr}
+\toprule
+ & \multicolumn{2}{c}{Train} & \multicolumn{2}{c}{Test} & \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Setup & Normal & DoS & Normal & DoS & Unseen DoS \\
+\midrule
+official & 67{,}343 & 45{,}927 & 9{,}711 & 7{,}458 & 1{,}717 \\
+holdout & 53{,}874 & 36{,}742 & 13{,}469 & 9{,}185 & -- \\
+KDDCup & 77{,}822 & 313{,}166 & 19{,}456 & 78{,}292 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

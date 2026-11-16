@@ -1,0 +1,21 @@
+\begin{table*}[t]
+\centering
+\caption{Median of 5 runs of prediction and training time in seconds, and the ratios of prediction time to Naive Bayes (Pred./NB) and of training time to the Decision Tree (Train/DT). Measured on an 8-core machine under background load.}
+\label{tab:timing}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+ & \multicolumn{4}{c}{NSL-KDD official, 8 features} & \multicolumn{4}{c}{KDDCup, 41 features} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}
+Model & Pred.\ (s) & Train (s) & Pred./NB & Train/DT & Pred.\ (s) & Train (s) & Pred./NB & Train/DT \\
+\midrule
+KNN & 0.775 & 0.0181 & 820 & 0.262 & 21.9 & 0.117 & 1{,}623 & 0.193 \\
+Naive Bayes & 0.000945 & 0.0108 & 1 & 0.157 & 0.0135 & 0.11 & 1 & 0.182 \\
+Decision Tree & 0.00122 & 0.0689 & 1.29 & 1 & 0.00524 & 0.606 & 0.389 & 1 \\
+Random Forest & 0.133 & 2.88 & 141 & 41.8 & 0.163 & 10.3 & 12.1 & 17 \\
+RF (tuned) & 0.167 & 3.5 & 176 & 50.8 & 0.19 & 9.63 & 14.1 & 15.9 \\
+SVM & 2.58 & 90.5 & 2{,}731 & 1{,}313 & 1.96 & 22.4 & 145 & 37 \\
+\bottomrule
+\end{tabular}
+\end{table*}
