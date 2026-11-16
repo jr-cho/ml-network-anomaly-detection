@@ -9,6 +9,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
 
 
 def knn(k=5, metric="euclidean"):
@@ -67,8 +68,19 @@ def random_forest_tuned(seed=42, n_keep=5):
     )
     return Pipeline([("select", selector), ("rf", forest)])
 
+def svm(c=30.0, kernel="rbf", seed=42):
+    """Support Vector Machine tuned to c = 30.0 and gamma = auto."""
+    return make_pipeline(
+        StandardScaler(),
+        SVC(
+            C=c,
+            kernel=kernel,
+            class_weight="balanced",
+            gamma="auto",
+            random_state=seed
+        )
+    )
 
-# TODO (Ethan): svm() with SVC/LinearSVC + StandardScaler
 
 MODELS = {
     "knn": knn,
@@ -76,4 +88,5 @@ MODELS = {
     "decision_tree": decision_tree,
     "random_forest": random_forest,
     "random_forest_tuned": random_forest_tuned,
+    "svm": svm,
 }
