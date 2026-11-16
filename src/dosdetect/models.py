@@ -8,8 +8,8 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
 
 
 def knn(k=5, metric="euclidean"):
@@ -68,17 +68,12 @@ def random_forest_tuned(seed=42, n_keep=5):
     )
     return Pipeline([("select", selector), ("rf", forest)])
 
-def svm(c=30.0, kernel="rbf", seed=42):
-    """Support Vector Machine tuned to c = 30.0 and gamma = auto."""
+
+def svm(c=50.0, kernel="rbf"):
+    """RBF SVM on scaled features; C=50, gamma="auto", balanced class weights."""
     return make_pipeline(
         StandardScaler(),
-        SVC(
-            C=c,
-            kernel=kernel,
-            class_weight="balanced",
-            gamma="auto",
-            random_state=seed
-        )
+        SVC(C=c, kernel=kernel, class_weight="balanced", gamma="auto"),
     )
 
 
